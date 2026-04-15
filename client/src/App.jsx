@@ -590,7 +590,7 @@ const App = () => {
                               <select 
                                 value={selectedTesterId}
                                 onChange={(e) => setSelectedTesterId(e.target.value)}
-                                className={`text-[10px] font-bold p-1 rounded-lg border ${isDark ? 'bg-slate-900 border-white/20 text-white' : 'bg-white border-slate-300'}`}
+                                className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border appearance-none cursor-pointer transition-all ${isDark ? 'bg-slate-900 border-white/20 text-white hover:border-primary/50' : 'bg-white border-slate-200 text-slate-900 hover:border-primary/50'} focus:ring-2 focus:ring-primary/20 outline-none min-w-[100px]`}
                               >
                                 {testers.map(t => (
                                   <option key={t.id} value={t.id}>{t.name}</option>
