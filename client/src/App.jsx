@@ -621,15 +621,28 @@ const App = () => {
                   Major Blockers
                 </h4>
                 <div className="space-y-3">
-                  <div className={`flex items-start gap-3 p-3 ${isDark ? 'bg-red-500/10 border-red-500/20' : 'bg-red-50 border-red-100'} rounded-2xl border`}>
-                    <div className={`p-1.5 ${isDark ? 'bg-red-500/20' : 'bg-red-100'} rounded-lg text-red-600`}>
-                      <AlertCircle size={16} />
+                  {allTestCases.filter(c => c.status === 'BLOCKED' || c.priority === 'CRITICAL' && c.status === 'FAIL').length > 0 ? (
+                    allTestCases
+                      .filter(c => c.status === 'BLOCKED' || (c.priority === 'CRITICAL' && c.status === 'FAIL'))
+                      .slice(0, 5) // Show top 5
+                      .map(blocker => (
+                        <div key={blocker.id} className={`flex items-start gap-3 p-3 ${isDark ? 'bg-red-500/10 border-red-500/20' : 'bg-red-50 border-red-100'} rounded-2xl border animate-in fade-in slide-in-from-right-2 duration-300`}>
+                          <div className={`p-1.5 ${isDark ? 'bg-red-500/20' : 'bg-red-100'} rounded-lg text-red-600`}>
+                            <AlertCircle size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`text-sm font-bold ${isDark ? 'text-red-400' : 'text-red-900'} truncate`}>{blocker.summary}</p>
+                            <p className={`text-[10px] ${isDark ? 'text-red-400/70' : 'text-red-600'} uppercase font-bold`}>
+                              {blocker.status === 'BLOCKED' ? 'STATUS: BLOCKED' : `PRIORITY: ${blocker.priority}`}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <div className={`p-6 border-2 border-dashed ${isDark ? 'border-white/5' : 'border-slate-100'} rounded-2xl text-center`}>
+                      <p className={`text-xs ${subTextColor} italic`}>No major blockers detected. System healthy.</p>
                     </div>
-                    <div>
-                      <p className={`text-sm font-bold ${isDark ? 'text-red-400' : 'text-red-900'} line-clamp-1`}>API Blocker - Priority 0</p>
-                      <p className={`text-xs ${isDark ? 'text-red-400/70' : 'text-red-600'}`}>Affecting current sprint</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
