@@ -3,7 +3,10 @@ const dotenv = require('dotenv');
 const path = require('path');
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Defend against missing Vercel environment variables to prevent server crash
+const genAI = process.env.GEMINI_API_KEY 
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
 
 /**
  * AI Parser Service
@@ -12,6 +15,10 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const parseTestCases = async (rawData, headers, onProgress, filename) => {
   const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro', 'gemini-2.0-flash'];
   let lastError;
+
+  if (!genAI) {
+    throw new Error('GEMINI_API_KEY is not configured in Vercel. AI features disabled.');
+  }
 
   for (const modelName of candidateModels) {
     try {

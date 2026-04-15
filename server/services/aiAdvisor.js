@@ -3,12 +3,21 @@ const { PrismaClient } = require('@prisma/client');
 const dotenv = require('dotenv');
 dotenv.config({ path: '../../.env' });
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Defend against missing Vercel environment variables
+const genAI = process.env.GEMINI_API_KEY 
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
 const prisma = new PrismaClient();
 
 const { emitStatus } = require('../socket');
 
 const generateInsights = async (projectId) => {
+  if (!genAI) {
+    console.warn('GEMINI_API_KEY is not configured. AI Advisor disabled.');
+    emitStatus('AI Advisor: Disabled (Missing API Key).');
+    return [];
+  }
+
   const modelName = 'gemini-2.5-flash';
   let model;
   
