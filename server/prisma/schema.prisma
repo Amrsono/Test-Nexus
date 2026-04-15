@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String      @id @default(cuid())
+  name        String
+  logoUrl     String?
+  themeColor  String      @default("#f8fafc") // Default slate-50
+  startDate   DateTime?
+  goLiveDate  DateTime?
+  testSuites  TestSuite[]
+  insights    Insight[]
+  defects     Defect[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model User {
+  id          String       @id @default(cuid())
+  name        String
+  email       String       @unique
+  role        String       @default("TESTER") // ADMIN, TESTER, LEAD
+  assignments Assignment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model TestSuite {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  project     Project    @relation(fields: [projectId], references: [id])
+  projectId   String
+  testCases   TestCase[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model TestCase {
+  id              String       @id @default(cuid())
+  externalId      String?      // From Excel
+  summary         String
+  steps           String
+  expectedResult  String
+  status          String       @default("PENDING") // PENDING, PASS, FAIL, BLOCKED
+  priority        String       @default("MEDIUM")  // LOW, MEDIUM, HIGH, CRITICAL
+  module          String?
+  suite           TestSuite    @relation(fields: [suiteId], references: [id])
+  suiteId         String
+  assignments     Assignment[]
+  defects         Defect[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Assignment {
+  id         String   @id @default(cuid())
+  tester     User     @relation(fields: [testerId], references: [id])
+  testerId   String
+  testCase   TestCase @relation(fields: [testCaseId], references: [id])
+  testCaseId String
+  assignedAt DateTime @default(now())
+  dueDate    DateTime?
+}
+
+model Defect {
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  status         String    @default("OPEN") // OPEN, FIXED, VERIFIED, CLOSED
+  severity       String    @default("MEDIUM")
+  project        Project   @relation(fields: [projectId], references: [id])
+  projectId      String
+  relatedCase    TestCase? @relation(fields: [relatedCaseId], references: [id])
+  relatedCaseId  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Insight {
+  id        String   @id @default(cuid())
+  type      String   // RISK, VELOCITY, WORKLOAD, ADVICE
+  message   String
+  category  String?  // Module name or "Global"
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  isActionable Boolean @default(true)
+  createdAt DateTime @default(now())
+}

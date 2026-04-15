@@ -1,0 +1,77 @@
+Goal: Build a full-stack, AI-powered Test Management Platform called "TestNexus." The tool must extract test cases from uploaded Excel sheets/Test Plans and provide a comprehensive management dashboard.
+1. Core Functionality & Workflows:
+Data Extraction: Create a robust "Import" module that uses an AI agent to parse uploaded Excel files and Test Plans. Automatically map columns to standard fields (ID, Summary, Steps, Expected Result) and handle variations in sheet formatting.
+Workload Management: Implement a "Capacity Planner" that calculates daily workloads based on total cases vs. remaining time. Include an "Auto-Assign" feature that suggests case distribution among team members.
+Progress Tracking: Build a real-time dashboard featuring:
+Execution Burndown Chart: Visualizing remaining test cases vs. timeline.
+Defect/Blocker Hub: Track bug statuses and link them directly to blocked test cases.
+
+2. Technical Stack:
+Frontend: React with Tailwind CSS for a modern, responsive UI. Use Recharts or Chart.js for data visualizations.
+Backend: Node.js with Express.
+Database: MongoDB or PostgreSQL for persistent storage of cases and history.
+Processing: Use pandas or SheetJS for initial Excel handling, paired with LLM-based logic for unstructured data extraction.
+
+3. Implementation Instructions:
+Step 1: Initialize the project environment and set up a file upload endpoint.
+Step 2: Develop the AI parser to convert unstructured Test Plan uploads into structured JSON test cases.
+Step 3: Design the Dashboard UI with components for Burndown, Blockers, and Performance metrics.
+Step 4: Implement the daily workload algorithm and assignment logic.
+Step 5: Create the AI Advisor agent that monitors the database and generates daily strategy insights.
+
+4. Success Metrics:
+The tool must successfully generate a structured test suite from a single file upload without manual field mapping.
+The burndown chart must update instantly as test statuses change from "Pending" to "Pass/Fail."
+
+To integrate these features into your Antigravity build, use the following detailed specifications for the AI logic and dashboard layout.
+1. AI Advisory Logic (Risk & Performance)
+This logic acts as the "brain" of the platform, continuously analyzing your data to provide proactive strategy. 
+
+Slippage Detection: Calculates if the team is falling behind by comparing actual progress against the "Ideal Burndown" line. If the current velocity is <90% of the required daily rate, it flags a "Timeline Risk".
+Focus Area Analysis: Identifies modules or features with a failure or blocker rate exceeding 20%. It marks these as "High Risk Areas" that require immediate attention from senior testers or developers.
+Dynamic Workload Balancing: The agent monitors individual tester capacity. If one user has >25% more pending cases than the team average, the AI suggests Auto-Reassignment to available team members.
+Smart Advice Generator: Daily "Action Items" based on trends, such as: "Velocity is dipping in Module X; suggest prioritizing blocker #402 to unlock 15 dependent test cases". 
+
+2. Dashboard Layout (Visual Architecture)
+A well-structured dashboard ensures critical information is seen at a glance. 
+
+Section 	Component Type	Content & Functionality
+Top Hero	Executive Summary	Total Cases, Pass/Fail/Blocker percentages, and a 🟢/🟡/🔴 Health Status.
+Primary Column	Execution Burndown	X-axis: Sprint/Project dates. Y-axis: Remaining test cases. Includes an Ideal Line (planned) vs. Actual Line (real progress).
+Right Sidebar	AI Insights Feed	The AI Advisory Agent's real-time suggestions, risk alerts, and workload tips.
+Bottom Grid	Workload Heatmap	A grid showing team members and their assigned vs. completed cases to spot bottlenecks.
+Bottom Grid	Defect/Blocker Hub	A live list of high-priority defects linked to specific "Blocked" test cases.
+
+Burndown Visualization Tips
+Ideal Progress: A straight line from the total number of test cases at the start to zero at the project end.
+Actual Progress: Plotted daily as work is completed. If this line is above the ideal line, you are behind schedule.
+Capacity Units: While story points are common, using "Number of Test Cases" or "Estimated Effort Hours" is more effective for testing-specific tools. 
+
+To integrate assignment and monitoring features into your tool, use these structured logic modules. They will allow you to distribute work directly from the imported Excel data and track completion in real-time. 
+1. Tester Assignment Module
+This logic allows you to link test cases to specific team members. 
+Bulk Assignment: Select multiple test cases from your imported list and assign them to a tester via a dropdown menu.
+Assignment Triggers:
+On Import: Automatically assign cases based on keywords in the Excel sheet (e.g., if "Module: Login" appears, assign to "Tester A").
+Manual Override: Re-assign cases individually if a tester becomes blocked or overloaded.
+Capacity Guard: The AI agent monitors each tester's total "Assigned" count and warns if someone has exceeded their daily limit based on the project timeline. 
+2. Progress Monitoring Dashboard
+A live view of the testing lifecycle (STLC) to keep stakeholders informed. 
+
+Real-Time Status Tracking: Monitor cases as they move through three primary stages:
+To Do: Assigned but not yet started.
+In Progress: Currently being executed by the tester.
+Done: Execution complete (Pass/Fail logged).
+Visual Indicators:
+Execution Grid: A sortable table showing each tester's name next to their current success/failure rate.
+Pass/Fail Ratio: A donut chart showing the overall health of the current test run.
+Slippage Alerts: If the actual progress line on your burndown chart stays above the ideal line for more than 24 hours, the AI agent highlights the specific tester or module causing the delay.
+3. Recommended UI Layout
+Component 	Function
+Assignment Panel	A split-screen view: Left side lists "Unassigned Cases"; Right side lists "Testers." Drag and drop cases to assign.
+Tester Performance Table	Columns for: Tester Name, Total Cases, % Complete, Number of Bugs Found, and Current Status (Active/Idle).
+Progress Tracker	A simple progress bar for each major module (e.g., "Onboarding: 75% complete").
+
+
+
+can we also add a feature in the dashboard where I can add several projects in shape of different tabs , so every project will be in a separate tab and every tab can have its own project logo and project name and background colour

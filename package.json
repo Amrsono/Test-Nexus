@@ -1,0 +1,17 @@
+{
+  "name": "test-nexus",
+  "version": "1.0.0",
+  "description": "Premium Test Management Platform",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w client\" \"npm run dev -w server\"",
+    "install-all": "npm install && npm install -w client && npm install -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
