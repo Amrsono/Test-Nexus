@@ -246,7 +246,7 @@ const App = () => {
 
     try {
       setLoading(true);
-      await axios.patch(`${API_BASE}/projects/${selectedProjectId}`, formData);
+      await axios.patch(`${API_BASE}/projects/${selectedProjectId}/logo`, formData);
       await fetchProjects();
       alert('Logo updated!');
     } catch (err) {

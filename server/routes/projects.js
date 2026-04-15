@@ -32,19 +32,20 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update project settings (logo/color/dates)
-router.patch('/:id', upload.single('logo'), async (req, res) => {
+// Update project settings (color/dates/name) - JSON ONLY
+router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const { name, themeColor, startDate, goLiveDate } = req.body;
   
-  let updateData = { name, themeColor };
-  if (startDate) updateData.startDate = new Date(startDate);
-  if (goLiveDate) updateData.goLiveDate = new Date(goLiveDate);
+  let updateData = {};
+  if (name !== undefined) updateData.name = name;
+  if (themeColor !== undefined) updateData.themeColor = themeColor;
   
-  if (req.file) {
-    // In a real app, we'd upload to S3. For now, we'll store as base64 or just a mock path
-    const base64Logo = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-    updateData.logoUrl = base64Logo;
+  if (startDate !== undefined) {
+    updateData.startDate = startDate ? new Date(startDate) : null;
+  }
+  if (goLiveDate !== undefined) {
+    updateData.goLiveDate = goLiveDate ? new Date(goLiveDate) : null;
   }
 
   try {
@@ -54,6 +55,29 @@ router.patch('/:id', upload.single('logo'), async (req, res) => {
     });
     res.json(updated);
   } catch (error) {
+    console.error('Project Update Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update project logo - MULTIPART ONLY
+router.patch('/:id/logo', upload.single('logo'), async (req, res) => {
+  const { id } = req.params;
+  
+  if (!req.file) {
+    return res.status(400).json({ error: 'No logo file provided' });
+  }
+
+  const base64Logo = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+  try {
+    const updated = await prisma.project.update({
+      where: { id },
+      data: { logoUrl: base64Logo }
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Logo Update Error:', error);
     res.status(500).json({ error: error.message });
   }
 });
