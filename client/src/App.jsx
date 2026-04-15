@@ -10,8 +10,11 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
-const API_BASE = 'http://localhost:5000/api';
-const socket = io('http://localhost:5000');
+const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const API_BASE = isLocal ? 'http://localhost:5000/api' : '/api';
+const socket = io(isLocal ? 'http://localhost:5000' : window.location.origin, {
+  transports: ['websocket', 'polling']
+});
 
 const App = () => {
   const [projects, setProjects] = useState([]);
