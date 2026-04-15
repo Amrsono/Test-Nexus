@@ -33,8 +33,10 @@ const App = () => {
   const [isMappingModalOpen, setIsMappingModalOpen] = useState(false);
   const [activeHeaders, setActiveHeaders] = useState([]);
   const [activeUploadFile, setActiveUploadFile] = useState(null);
+  const [activeFilename, setActiveFilename] = useState('');
   const [isTrackerOpen, setIsTrackerOpen] = useState(false);
   const [allTestCases, setAllTestCases] = useState([]);
+  const [manualProjectName, setManualProjectName] = useState('');
   const [manualMap, setManualMap] = useState({
     externalId: '',
     summary: '',
@@ -44,7 +46,15 @@ const App = () => {
     module: ''
   });
 
+  const [localTheme, setLocalTheme] = useState('#f8fafc');
+
   const selectedProject = projects.find(p => p.id === selectedProjectId);
+
+  useEffect(() => {
+    if (selectedProject?.themeColor) {
+      setLocalTheme(selectedProject.themeColor);
+    }
+  }, [selectedProject]);
 
   useEffect(() => {
     fetchProjects();
@@ -128,9 +138,12 @@ const App = () => {
       setProjects(res.data);
       if (res.data.length > 0 && !selectedProjectId) {
         setSelectedProjectId(res.data[0].id);
+      } else if (res.data.length === 0) {
+        setLoading(false);
       }
     } catch (err) {
       console.error('Projects error', err);
+      setLoading(false);
     }
   };
 
@@ -172,6 +185,10 @@ const App = () => {
       if (res.status === 202 && res.data.status === 'MAPPING_REQUIRED') {
         setActiveHeaders(res.data.headers);
         setActiveUploadFile(file);
+        // Pre-fill project name from filename (strip extension)
+        const nameFromFile = file.name ? file.name.replace(/\.[^.]+$/, '') : 'New Project';
+        setManualProjectName(nameFromFile);
+        setActiveFilename(file.name);
         setIsMappingModalOpen(true);
         setAgentLogs(prev => [...prev, 'System: Switching to Manual Mapping...']);
         return;
@@ -211,6 +228,7 @@ const App = () => {
     formData.append('suiteName', 'Manual Import ' + new Date().toLocaleDateString());
     formData.append('projectId', selectedProjectId);
     formData.append('manualMapping', JSON.stringify(manualMap));
+    formData.append('manualProjectName', manualProjectName);
 
     try {
       setLoading(true);
@@ -238,6 +256,12 @@ const App = () => {
   };
 
   const handleLogoUpload = async (e) => {
+    if (!selectedProjectId) {
+      alert("Please import a test plan first to establish a project context for your logo.");
+      e.target.value = '';
+      return;
+    }
+    
     const file = e.target.files[0];
     if (!file) return;
 
@@ -251,6 +275,7 @@ const App = () => {
       alert('Logo updated!');
     } catch (err) {
       console.error('Logo upload failed', err);
+      alert('Logo upload failed. It might be too large.');
     } finally {
       setLoading(false);
     }
@@ -323,7 +348,6 @@ const App = () => {
     // Standard download trigger via backend-generated binary with cache-buster
     window.open(`${API_BASE}/reports/project/${selectedProjectId}/ppt?t=${new Date().getTime()}`, '_blank');
   };
-;
 
   const updateCaseStatus = async (caseId, status) => {
     try {
@@ -354,6 +378,8 @@ const App = () => {
 
 
   const handleThemeChange = async (color) => {
+    setLocalTheme(color);
+    if (!selectedProjectId) return;
     try {
       const res = await axios.patch(`${API_BASE}/projects/${selectedProjectId}`, { themeColor: color });
       setProjects(projects.map(p => p.id === selectedProjectId ? res.data : p));
@@ -362,7 +388,7 @@ const App = () => {
     }
   };
 
-  const isDark = selectedProject?.themeColor === '#1a1a2e' || selectedProject?.themeColor === '#020617';
+  const isDark = localTheme === '#1a1a2e' || localTheme === '#020617';
   const textColor = isDark ? 'text-white' : 'text-slate-900';
   const subTextColor = isDark ? 'text-slate-400' : 'text-slate-500';
   const cardBg = isDark ? 'bg-white/5 border-white/10' : 'bg-white border-slate-100';
@@ -376,7 +402,7 @@ const App = () => {
   return (
     <div 
       className="min-h-screen p-6 md:p-10 font-sans transition-all duration-700 ease-in-out"
-      style={{ backgroundColor: selectedProject?.themeColor || '#f8fafc' }}
+      style={{ backgroundColor: localTheme }}
     >
       <header className="flex flex-col gap-6 mb-10">
         <div className="flex justify-between items-center">
@@ -420,7 +446,7 @@ const App = () => {
                 <button
                   key={t.name}
                   onClick={() => handleThemeChange(t.color)}
-                  className={`w-8 h-8 rounded-lg border transition-all ${selectedProject?.themeColor === t.color ? 'ring-2 ring-primary scale-90' : 'opacity-60 hover:opacity-100'}`}
+                  className={`w-8 h-8 rounded-lg border transition-all ${localTheme === t.color ? 'ring-2 ring-primary scale-90' : 'opacity-60 hover:opacity-100'}`}
                   style={{ backgroundColor: t.color }}
                   title={t.name}
                 />
@@ -742,6 +768,21 @@ const App = () => {
             
             <form onSubmit={handleManualSubmit} className="p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
               <div className="grid gap-4">
+                {/* Project Name - always shown so user can set/override it */}
+                <div className="space-y-1.5 pb-2 border-b border-slate-700">
+                  <label className="text-xs font-medium text-indigo-400 flex items-center gap-2">
+                    <Brain className="w-4 h-4" /> Project Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={manualProjectName}
+                    onChange={(e) => setManualProjectName(e.target.value)}
+                    placeholder="e.g. My Test Project"
+                    className="w-full bg-slate-800 border border-indigo-500/50 text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-slate-500"
+                  />
+                  <p className="text-[10px] text-slate-500">A new project tab will be created with this name.</p>
+                </div>
                 {[
                   { field: 'externalId', label: 'Test Case ID (#)', icon: <Activity className="w-4 h-4" /> },
                   { field: 'summary', label: 'Test Case Title', icon: <Plus className="w-4 h-4" /> },

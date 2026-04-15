@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev -w client\" \"npm run dev -w server\"",
     "install-all": "npm install && npm install -w client && npm install -w server",
-    "postinstall": "cd server && npx prisma@5 generate && npx prisma@5 db push --accept-data-loss"
+    "postinstall": "cd server && npx prisma generate && npx prisma db push --accept-data-loss"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

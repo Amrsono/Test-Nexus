@@ -16,7 +16,10 @@ router.post('/', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const { suiteName, projectId: providedProjectId } = req.body;
+    const { suiteName } = req.body;
+    // Sanitize projectId - FormData sends null/undefined as literal strings
+    const rawProjectId = req.body.projectId;
+    const providedProjectId = (!rawProjectId || rawProjectId === 'null' || rawProjectId === 'undefined') ? null : rawProjectId;
 
     emitStatus('System: Aggregating workbook tabs...');
 
@@ -118,7 +121,23 @@ router.post('/', upload.single('file'), async (req, res) => {
     }
 
     if (!targetProjectId) {
-      return res.status(400).json({ error: 'Could not determine project context' });
+      emitStatus('System: Creating baseline project tab...');
+      const manualProjectName = req.body.manualProjectName;
+      const fallbackName = (manualProjectName && manualProjectName !== 'null' && manualProjectName !== 'undefined')
+        ? manualProjectName
+        : (req.file?.originalname ? req.file.originalname.replace(/\.[^.]+$/, '') : 'Manual Import Project');
+
+      // Check if a project with this name already exists
+      const existingProject = await prisma.project.findFirst({ where: { name: fallbackName } });
+      if (existingProject) {
+        emitStatus('System: Syncing with existing project...');
+        targetProjectId = existingProject.id;
+      } else {
+        const newProject = await prisma.project.create({
+          data: { name: fallbackName, themeColor: '#f8fafc' }
+        });
+        targetProjectId = newProject.id;
+      }
     }
 
     emitStatus(`System: Saving ${structuredCases.length} test cases to suite...`);
