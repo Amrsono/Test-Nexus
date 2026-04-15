@@ -590,17 +590,18 @@ const App = () => {
                               <select 
                                 value={selectedTesterId}
                                 onChange={(e) => setSelectedTesterId(e.target.value)}
-                                className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border appearance-none cursor-pointer transition-all ${isDark ? 'bg-slate-900 border-white/20 text-white hover:border-primary/50' : 'bg-white border-slate-200 text-slate-900 hover:border-primary/50'} focus:ring-2 focus:ring-primary/20 outline-none min-w-[100px]`}
+                                className={`text-[11px] font-bold px-4 py-2 rounded-xl border cursor-pointer transition-all ${isDark ? 'bg-slate-900 border-white/20 text-white hover:border-primary/50' : 'bg-white border-slate-200 text-slate-900 hover:border-primary/50'} focus:ring-2 focus:ring-primary/20 outline-none min-w-[120px] h-9`}
                               >
+                                <option value="">Assign Tester...</option>
                                 {testers.map(t => (
                                   <option key={t.id} value={t.id}>{t.name}</option>
                                 ))}
                               </select>
                               <button 
                                 onClick={() => handleAssign(c.id)}
-                                className="p-1.5 bg-primary text-white rounded-lg hover:bg-primary/80 transition-all"
+                                className="h-9 w-9 flex items-center justify-center bg-primary text-white rounded-xl hover:bg-primary/80 transition-all shadow-lg shadow-primary/20"
                               >
-                                <Plus size={14} />
+                                <Plus size={16} />
                               </button>
                             </div>
                           </div>
