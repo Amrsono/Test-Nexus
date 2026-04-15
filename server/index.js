@@ -39,6 +39,11 @@ app.use('/api/insights', insightRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/reports', reportRoutes);
 
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT} with Agent Socket active`);
-});
+// Export app for Vercel
+module.exports = app;
+
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT} with Agent Socket active`);
+  });
+}
