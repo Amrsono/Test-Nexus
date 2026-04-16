@@ -147,6 +147,69 @@ const App = () => {
     }
   };
 
+  const handleCreateProject = async () => {
+    const name = window.prompt('Enter new project name:');
+    if (!name?.trim()) return;
+    try {
+      setLoading(true);
+      const res = await axios.post(`${API_BASE}/projects`, { name: name.trim(), themeColor: '#f8fafc' });
+      await fetchProjects();
+      setSelectedProjectId(res.data.id);
+    } catch (err) {
+      console.error('Create project failed', err);
+      alert('Failed to create project');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetProject = async () => {
+    if (!selectedProjectId) return;
+    if (!window.confirm('Are you sure you want to MASTER RESET this project? This will delete ALL imported test plans, scenarios, assignments, defects, and insights for this project exclusively. The project name and logo will be preserved.')) return;
+
+    try {
+      setLoading(true);
+      await axios.post(`${API_BASE}/projects/${selectedProjectId}/reset`);
+      await fetchStats();
+      await fetchInsights();
+      await fetchUnassigned();
+      await fetchAllTestCases();
+      await fetchBurndown();
+      alert('Project scenarios have been fully reset.');
+    } catch (err) {
+      console.error('Reset project failed', err);
+      alert('Failed to reset project');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteProject = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to completely DELETE the project "${name}" and all its data? This cannot be undone.`)) return;
+
+    try {
+      setLoading(true);
+      await axios.delete(`${API_BASE}/projects/${id}`);
+      
+      const res = await axios.get(`${API_BASE}/projects`);
+      setProjects(res.data);
+      if (res.data.length > 0) {
+        setSelectedProjectId(res.data[0].id);
+      } else {
+        setSelectedProjectId(null);
+        setStats({ total: 0, passed: 0, failed: 0, blocked: 0, pending: 0 });
+        setInsights([]);
+        setUnassignedCases([]);
+        setBurndownData([]);
+      }
+    } catch (err) {
+      console.error('Delete project failed', err);
+      alert('Failed to delete project');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchStats = async (projectIdOverride) => {
     const id = projectIdOverride || selectedProjectId;
     if (!id) return;
@@ -281,6 +344,32 @@ const App = () => {
     }
   };
 
+  const handleBackgroundUpload = async (e) => {
+    if (!selectedProjectId) {
+      alert("Please import a test plan first to establish a project context for your background.");
+      e.target.value = '';
+      return;
+    }
+    
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('background', file);
+
+    try {
+      setLoading(true);
+      await axios.patch(`${API_BASE}/projects/${selectedProjectId}/background`, formData);
+      await fetchProjects();
+      alert('Background updated!');
+    } catch (err) {
+      console.error('Background upload failed', err);
+      alert('Background upload failed. It might be too large.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAnalyze = async () => {
     try {
       await axios.post(`${API_BASE}/insights/analyze`, { projectId: selectedProjectId });
@@ -401,8 +490,11 @@ const App = () => {
 
   return (
     <div 
-      className="min-h-screen p-6 md:p-10 font-sans transition-all duration-700 ease-in-out"
-      style={{ backgroundColor: localTheme }}
+      className="min-h-screen p-6 md:p-10 font-sans transition-all duration-700 ease-in-out bg-cover bg-center bg-no-repeat bg-fixed"
+      style={{ 
+        backgroundColor: localTheme,
+        backgroundImage: selectedProject?.backgroundUrl ? `url(${selectedProject.backgroundUrl})` : 'none'
+      }}
     >
       <header className="flex flex-col gap-6 mb-10">
         <div className="flex justify-between items-center">
@@ -459,6 +551,19 @@ const App = () => {
               <Upload className="w-4 h-4 rotate-180" />
               Export Report
             </button>
+            <button 
+              onClick={handleResetProject}
+              className={`flex items-center gap-2 px-5 py-2.5 bg-red-600/10 text-red-500 border border-red-500/20 rounded-xl font-semibold hover:bg-red-600/20 transition-all shadow-sm`}
+              title={`Master Reset: Delete all scenarios for ${selectedProject?.name || 'this project'}`}
+            >
+              <AlertCircle size={18} />
+              Reset {selectedProject?.name ? `(${selectedProject.name})` : ''}
+            </button>
+            <label className={`flex items-center gap-2 px-5 py-2.5 ${isDark ? 'bg-white/10 text-white border-white/20' : 'bg-white text-slate-700 border-slate-200'} border rounded-xl font-semibold hover:opacity-80 transition-all shadow-sm cursor-pointer`}>
+              <Plus size={18} />
+              Background
+              <input type="file" className="hidden" onChange={handleBackgroundUpload} accept="image/*" />
+            </label>
             <label className={`flex items-center gap-2 px-5 py-2.5 ${isDark ? 'bg-white/10 text-white border-white/20' : 'bg-white text-slate-700 border-slate-200'} border rounded-xl font-semibold hover:opacity-80 transition-all shadow-sm cursor-pointer`}>
               <Plus size={18} />
               Logo
@@ -475,18 +580,38 @@ const App = () => {
         {/* Project Tabs */}
         <div className={`flex gap-2 p-1 ${isDark ? 'bg-black/20' : 'bg-white/20'} backdrop-blur-sm rounded-2xl border ${isDark ? 'border-white/10' : 'border-white/40'} w-fit`}>
           {projects.map(project => (
-            <button
-              key={project.id}
-              onClick={() => setSelectedProjectId(project.id)}
-              className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                selectedProjectId === project.id 
-                ? (isDark ? 'bg-primary text-white shadow-lg shadow-primary/40' : 'bg-white text-primary shadow-lg')
-                : (isDark ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-600 hover:bg-white/40')
-              }`}
-            >
-              {project.name}
-            </button>
+            <div key={project.id} className="relative group flex items-center">
+              <button
+                onClick={() => setSelectedProjectId(project.id)}
+                className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                  selectedProjectId === project.id 
+                  ? (isDark ? 'bg-primary text-white shadow-lg shadow-primary/40' : 'bg-white text-primary shadow-lg')
+                  : (isDark ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-600 hover:bg-white/40')
+                }`}
+              >
+                {project.name}
+              </button>
+              {selectedProjectId === project.id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteProject(project.id, project.name);
+                  }}
+                  className={`absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:scale-110 z-10`}
+                  title="Close Project"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           ))}
+          <button
+            onClick={handleCreateProject}
+            className={`px-4 py-2.5 rounded-xl font-bold flex items-center justify-center transition-all ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-600 hover:bg-slate-200'} border border-dashed border-slate-400/50`}
+            title="Create New Project"
+          >
+            <Plus size={18} />
+          </button>
         </div>
       </header>
 
