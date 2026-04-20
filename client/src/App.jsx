@@ -59,6 +59,14 @@ const App = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasLoadedDrafts, setHasLoadedDrafts] = useState(false);
   const [newProjDates, setNewProjDates] = useState({ start: new Date().toISOString().split('T')[0], goLive: '' });
+  const [defects, setDefects] = useState([]);
+  const [isDefectModalOpen, setIsDefectModalOpen] = useState(false);
+  const [editingDefectId, setEditingDefectId] = useState(null);
+  const [newDefectData, setNewDefectData] = useState({
+    externalId: '', title: '', severity: 'P2', owner: '', actionPlan: '', 
+    description: '', futImpact: '', relatedCaseId: '', blockedCases: '',
+    raisedAt: new Date().toISOString().split('T')[0]
+  });
 
   const [localTheme, setLocalTheme] = useState('#f8fafc');
 
@@ -95,6 +103,16 @@ const App = () => {
     return () => socket.off('agent:status');
   }, []);
 
+  const fetchDefects = async () => {
+    if (!selectedProjectId) return;
+    try {
+      const res = await axios.get(`${API_BASE}/defects?projectId=${selectedProjectId}`);
+      setDefects(res.data);
+    } catch (err) {
+      console.error('Fetch Defects Error:', err);
+    }
+  };
+
   useEffect(() => {
     if (selectedProjectId) {
       fetchStats();
@@ -102,6 +120,12 @@ const App = () => {
       fetchUnassigned();
       fetchAllTestCases();
       fetchBurndown();
+      fetchDefects();
+      const interval = setInterval(() => {
+        fetchInsights();
+        fetchDefects();
+      }, 30000); // Higher frequency for critical alerts
+      return () => clearInterval(interval);
     }
   }, [selectedProjectId]);
 
@@ -267,25 +291,76 @@ const App = () => {
     try {
       setLoading(true);
       await axios.delete(`${API_BASE}/projects/${id}`);
-      
       const res = await axios.get(`${API_BASE}/projects`);
       setProjects(res.data);
       if (res.data.length > 0) {
         setSelectedProjectId(res.data[0].id);
       } else {
         setSelectedProjectId(null);
-        setStats({ total: 0, passed: 0, failed: 0, blocked: 0, pending: 0 });
-        setInsights([]);
-        setUnassignedCases([]);
-        setBurndownData([]);
       }
     } catch (err) {
-      console.error('Delete project failed', err);
-      alert('Failed to delete project');
+      console.error('Delete Project Error:', err);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleOpenEditDefect = (defect) => {
+    setNewDefectData({
+      externalId: defect.externalId || '',
+      title: defect.title || '',
+      severity: defect.severity || 'P2',
+      owner: defect.owner || '',
+      actionPlan: defect.actionPlan || '',
+      description: defect.description || '',
+      futImpact: defect.futImpact || '',
+      relatedCaseId: defect.relatedCaseId || '',
+      blockedCases: defect.blockedCases || '',
+      raisedAt: defect.raisedAt ? new Date(defect.raisedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    });
+    setEditingDefectId(defect.id);
+    setIsDefectModalOpen(true);
+  };
+
+  const handleDefectSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      if (editingDefectId) {
+        await axios.patch(`${API_BASE}/defects/${editingDefectId}`, {
+          ...newDefectData
+        });
+      } else {
+        await axios.post(`${API_BASE}/defects`, { 
+          ...newDefectData, 
+          projectId: selectedProjectId 
+        });
+      }
+      setIsDefectModalOpen(false);
+      setEditingDefectId(null);
+      setNewDefectData({
+        externalId: '', title: '', severity: 'P2', owner: '', actionPlan: '', 
+        description: '', futImpact: '', relatedCaseId: '', blockedCases: '',
+        raisedAt: new Date().toISOString().split('T')[0]
+      });
+      await fetchDefects();
+    } catch (err) {
+      console.error('Defect Submission Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteDefect = async (id) => {
+    if (!window.confirm('Delete this blocker?')) return;
+    try {
+      await axios.delete(`${API_BASE}/defects/${id}`);
+      await fetchDefects();
+    } catch (err) {
+      console.error('Delete Defect Error:', err);
+    }
+  };
+
 
   const fetchStats = async (projectIdOverride) => {
     const id = projectIdOverride || selectedProjectId;
@@ -1036,31 +1111,69 @@ const App = () => {
                   </div>
                 </div>
                 <div className={`${cardBg} p-6 rounded-3xl shadow-lg`}>
-                  <h4 className={`font-bold ${textColor} mb-4 flex items-center gap-2`}>
-                    <Bug size={20} className={subTextColor} />
-                    Major Blockers
-                  </h4>
-                  <div className="space-y-3">
-                    {allTestCases.filter(c => c.status === 'BLOCKED' || c.priority === 'CRITICAL' && c.status === 'FAIL').length > 0 ? (
-                      allTestCases
-                        .filter(c => c.status === 'BLOCKED' || (c.priority === 'CRITICAL' && c.status === 'FAIL'))
-                        .slice(0, 5) // Show top 5
-                        .map(blocker => (
-                          <div key={blocker.id} className={`flex items-start gap-3 p-3 ${isDark ? 'bg-red-500/10 border-red-500/20' : 'bg-red-50 border-red-100'} rounded-2xl border animate-in fade-in slide-in-from-right-2 duration-300`}>
-                            <div className={`p-1.5 ${isDark ? 'bg-red-500/20' : 'bg-red-100'} rounded-lg text-red-600`}>
-                              <AlertCircle size={16} />
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className={`font-bold ${textColor} flex items-center gap-2`}>
+                      <Bug size={20} className={subTextColor} />
+                      Major Blockers
+                    </h4>
+                    <button 
+                      onClick={() => {
+                        setEditingDefectId(null);
+                        setNewDefectData({
+                          externalId: '', title: '', severity: 'P2', owner: '', actionPlan: '', 
+                          description: '', futImpact: '', relatedCaseId: '', blockedCases: '',
+                          raisedAt: new Date().toISOString().split('T')[0]
+                        });
+                        setIsDefectModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 text-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-rose-500/20 transition-all"
+                    >
+                      <Plus size={12} />
+                      Report Blocker
+                    </button>
+                  </div>
+                  <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                    {defects.length > 0 ? (
+                      defects.map(defect => (
+                        <div 
+                          key={defect.id} 
+                          onClick={() => handleOpenEditDefect(defect)}
+                          className={`group relative flex flex-col gap-2 p-4 cursor-pointer ${isDark ? 'bg-red-500/5 border-red-500/10' : 'bg-red-50/50 border-red-100'} rounded-2xl border hover:border-red-500/30 transition-all animate-in fade-in slide-in-from-right-2`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-black rounded-md">{defect.severity}</span>
+                              <span className={`text-[10px] font-bold ${subTextColor}`}>#{defect.externalId || 'MANUAL'}</span>
                             </div>
-                            <div className="min-w-0">
-                              <p className={`text-sm font-bold ${isDark ? 'text-red-400' : 'text-red-900'} truncate`}>{blocker.summary}</p>
-                              <p className={`text-[10px] ${isDark ? 'text-red-400/70' : 'text-red-600'} uppercase font-bold`}>
-                                {blocker.status === 'BLOCKED' ? 'STATUS: BLOCKED' : `PRIORITY: ${blocker.priority}`}
-                              </p>
-                            </div>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteDefect(defect.id);
+                              }} 
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-500/10 rounded-lg text-rose-500 transition-all"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           </div>
-                        ))
+                          <div>
+                            <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'} leading-tight`}>{defect.title}</p>
+                            {defect.description && (
+                              <p className={`text-xs ${subTextColor} mt-1 line-clamp-2`}>{defect.description}</p>
+                            )}
+                          </div>
+                          {defect.owner && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="w-4 h-4 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                                <Users size={10} className="text-indigo-400" />
+                              </div>
+                              <span className="text-[10px] font-medium text-indigo-400">{defect.owner}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))
                     ) : (
-                      <div className={`p-6 border-2 border-dashed ${isDark ? 'border-white/5' : 'border-slate-100'} rounded-2xl text-center`}>
-                        <p className={`text-xs ${subTextColor} italic`}>No major blockers detected. System healthy.</p>
+                      <div className={`text-center py-12 border-2 border-dashed ${isDark ? 'border-white/5' : 'border-slate-100'} rounded-2xl`}>
+                        <p className={`text-sm ${subTextColor} italic`}>No active blockers reported</p>
                       </div>
                     )}
                   </div>
@@ -1898,11 +2011,11 @@ const App = () => {
                             <select
                               value={assignee?.id || ''}
                               onChange={(e) => updateCaseAssignment(tc.id, e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded-xl px-4 py-2 hover:border-indigo-500 transition-colors outline-none cursor-pointer"
+                              className="w-full bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded-xl px-4 py-2 hover:border-indigo-500 transition-colors outline-none cursor-pointer [&>option]:bg-slate-900 [&>option]:text-white"
                             >
-                              <option value="">Unassigned</option>
+                              <option value="" className="bg-slate-900">Unassigned</option>
                               {testers.map(t => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
+                                <option key={t.id} value={t.id} className="bg-slate-900">{t.name}</option>
                               ))}
                             </select>
                           </div>
@@ -1969,6 +2082,175 @@ const App = () => {
                 Close Tracker
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Report Defect Modal */}
+      {isDefectModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className={`bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-300`}>
+            <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-rose-500/20 rounded-2xl">
+                  <Bug className="w-6 h-6 text-rose-500" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white uppercase tracking-tight">
+                    {editingDefectId ? 'Edit Major Blocker' : 'Report Major Blocker'}
+                  </h3>
+                  <p className="text-slate-400 text-xs">Full Defect Template v2026.3</p>
+                </div>
+              </div>
+              <button onClick={() => setIsDefectModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+                <Plus size={32} className="rotate-45" />
+              </button>
+            </div>
+
+            <form onSubmit={handleDefectSubmit} className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left Column: Identifiers */}
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Issue Name / Summary</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. CCS 26.3 || Phoenix || Return Order Failure"
+                      className="w-full p-4 rounded-3xl bg-white/5 border border-white/10 text-white text-sm focus:border-rose-500 outline-none transition-all"
+                      value={newDefectData.title}
+                      onChange={(e) => setNewDefectData({...newDefectData, title: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Issue Number</label>
+                      <input 
+                        type="text" 
+                        placeholder="4171756"
+                        className="w-full p-4 rounded-3xl bg-white/5 border border-white/10 text-white text-sm focus:border-rose-500 outline-none transition-all"
+                        value={newDefectData.externalId}
+                        onChange={(e) => setNewDefectData({...newDefectData, externalId: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Date Raised</label>
+                      <input 
+                        type="date"
+                        className="w-full p-4 rounded-3xl bg-white/5 border border-white/10 text-white text-sm focus:border-rose-500 outline-none transition-all"
+                        value={newDefectData.raisedAt}
+                        onChange={(e) => setNewDefectData({...newDefectData, raisedAt: e.target.value})}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Priority</label>
+                      <select 
+                        className="w-full p-4 rounded-3xl bg-white/5 border border-white/10 text-white text-sm focus:border-rose-500 outline-none transition-all appearance-none cursor-pointer [&>option]:bg-slate-900 [&>option]:text-white"
+                        value={newDefectData.severity}
+                        onChange={(e) => setNewDefectData({...newDefectData, severity: e.target.value})}
+                      >
+                        <option value="P1" className="bg-slate-900">P1 - Critical</option>
+                        <option value="P2" className="bg-slate-900">P2 - High</option>
+                        <option value="P3" className="bg-slate-900">P3 - Medium</option>
+                        <option value="P4" className="bg-slate-900">P4 - Low</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Issue Owner</label>
+                      <input 
+                        type="text" 
+                        placeholder="Owner Name"
+                        className="w-full p-4 rounded-3xl bg-white/5 border border-white/10 text-white text-sm focus:border-rose-500 outline-none transition-all"
+                        value={newDefectData.owner}
+                        onChange={(e) => setNewDefectData({...newDefectData, owner: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Failed Test (Journey)</label>
+                    <select 
+                      className="w-full p-4 rounded-3xl bg-white/5 border border-white/10 text-white text-sm focus:border-rose-500 outline-none transition-all cursor-pointer [&>option]:bg-slate-900 [&>option]:text-white"
+                      value={newDefectData.relatedCaseId}
+                      onChange={(e) => setNewDefectData({...newDefectData, relatedCaseId: e.target.value})}
+                    >
+                      <option value="" className="bg-slate-900">Select failure journey...</option>
+                      {allTestCases.map(tc => (
+                        <option key={tc.id} value={tc.id} className="bg-slate-900">{tc.summary}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Right Column: Details */}
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Action Plan</label>
+                    <textarea 
+                      placeholder="Next steps and mitigation..."
+                      className="w-full p-4 rounded-3xl bg-white/5 border border-white/10 text-white text-sm focus:border-rose-500 outline-none transition-all h-[100px] resize-none"
+                      value={newDefectData.actionPlan}
+                      onChange={(e) => setNewDefectData({...newDefectData, actionPlan: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Further Info</label>
+                    <textarea 
+                      placeholder="Root cause, logs, or details..."
+                      className="w-full p-4 rounded-3xl bg-white/5 border border-white/10 text-white text-sm focus:border-rose-500 outline-none transition-all h-[100px] resize-none"
+                      value={newDefectData.description}
+                      onChange={(e) => setNewDefectData({...newDefectData, description: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">FUT Impact</label>
+                      <input 
+                        type="text" 
+                        placeholder="Impact on Future Testing"
+                        className="w-full p-4 rounded-3xl bg-white/5 border border-white/10 text-white text-sm focus:border-rose-500 outline-none transition-all"
+                        value={newDefectData.futImpact}
+                        onChange={(e) => setNewDefectData({...newDefectData, futImpact: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Blocked Test Areas</label>
+                      <input 
+                        type="text" 
+                        placeholder="Modules or journeys blocked"
+                        className="w-full p-4 rounded-3xl bg-white/5 border border-white/10 text-white text-sm focus:border-rose-500 outline-none transition-all"
+                        value={newDefectData.blockedCases}
+                        onChange={(e) => setNewDefectData({...newDefectData, blockedCases: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-12 flex gap-4">
+                <button 
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-5 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-[2rem] transition-all shadow-xl shadow-rose-900/40 disabled:opacity-50"
+                >
+                  {loading ? 'POSTING...' : (editingDefectId ? 'UPDATE BLOCKER REPORT' : 'UNLEASH BLOCKER REPORT')}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setIsDefectModalOpen(false)}
+                  className="px-10 py-5 bg-white/5 hover:bg-white/10 text-slate-400 font-bold rounded-[2rem] transition-all"
+                >
+                  CANCEL
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

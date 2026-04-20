@@ -30,44 +30,87 @@ router.get('/project/:id/ppt', async (req, res) => {
       pending: allCases.filter(c => c.status === 'PENDING').length,
     };
 
-    console.log(`Starting PPT generation for ${project.name}...`);
+    console.log(`Starting Nexus 2030 PPT generation for ${project.name}...`);
     const pres = new (pptxgen.default || pptxgen)();
-    console.log("Initialized pptxgen instance.");
-
-    console.log("Adding Title slide...");
-    let s1 = pres.addSlide();
-    s1.background = { color: "020617" };
-    s1.addText("Executive Test Status Report", { 
-      x: 1, y: 1.5, w: "80%", fontSize: 44, color: "FFFFFF", bold: true 
-    });
-    s1.addText(`${project.name} | ${new Date().toLocaleDateString()}`, { 
-      x: 1, y: 2.5, w: "80%", fontSize: 24, color: "6366F1" 
-    });
-
-    console.log("Adding Overview slide...");
-    let s2 = pres.addSlide();
-    s2.addText("Execution Overview", { x: 0.5, y: 0.5, fontSize: 32, bold: true });
     
-    const tableData = [
-      [{ text: "Metric", options: { bold: true, fill: "F1F5F9" } }, { text: "Value", options: { bold: true, fill: "F1F5F9" } }],
-      ["Total Scenarios", stats.total.toString()],
-      ["Passed", stats.passed.toString()],
-      ["Failed", stats.failed.toString()],
-      ["Blocked", stats.blocked.toString()],
-      ["Pending", stats.pending.toString()],
-    ];
-    s2.addTable(tableData, { x: 0.5, y: 1.2, w: 9, border: { type: "solid", color: "E2E8F0" }, fontSize: 18 });
+    // Set global layout/sizing
+    pres.layout = 'LAYOUT_16x9';
 
-    // 3. AI Insights
+    // 1. Futuristic Title Slide
+    let s1 = pres.addSlide();
+    s1.background = { color: "020617" }; // Stealth Black
+    s1.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.1, fill: { color: "6366F1" } }); // Indigo Top Accent
+    
+    s1.addText("EXECUTIVE QUALITY INSIGHTS", { 
+      x: 0.5, y: 1.0, w: "90%", fontSize: 14, color: "6366F1", bold: true, charSpacing: 4 
+    });
+    s1.addText(project.name.toUpperCase(), { 
+      x: 0.5, y: 1.5, w: "90%", fontSize: 48, color: "FFFFFF", bold: true 
+    });
+    s1.addText("AUTOMATED PROJECT READINESS REPORT", { 
+      x: 0.5, y: 2.2, w: "90%", fontSize: 18, color: "94A3B8" 
+    });
+    
+    s1.addText(`GENERATED ON: ${new Date().toLocaleDateString()}`, { 
+      x: 0.5, y: 4.5, fontSize: 12, color: "475569" 
+    });
+
+    // 2. Status Distribution (Pie Chart)
+    let s2 = pres.addSlide();
+    s2.background = { color: "020617" };
+    s2.addText("EXECUTION COMPOSITION", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF" });
+    s2.addShape(pres.ShapeType.rect, { x: 0.5, y: 0.8, w: 2, h: 0.05, fill: { color: "6366F1" } });
+
+    const chartData = [
+      {
+        name: "Status Breakdown",
+        labels: ["PASS", "FAIL", "BLOCKED", "PENDING"],
+        values: [stats.passed, stats.failed, stats.blocked, stats.pending]
+      }
+    ];
+    
+    s2.addChart(pres.ChartType.pie, chartData, { 
+      x: 0.5, y: 1.0, w: 5, h: 4, 
+      showPercent: true, 
+      showLegend: true, 
+      legendPos: 'r',
+      legendFontSize: 14,
+      legendColor: 'FFFFFF',
+      chartColors: ['10B981', 'EF4444', 'F59E0B', '64748B'] // Emerald, Red, Amber, Slate
+    });
+
+    // Overview Table next to chart
+    const tableData = [
+      [{ text: "METRIC", options: { bold: true, color: "6366F1", fontSize: 10 } }, { text: "QUANTITY", options: { bold: true, color: "6366F1", fontSize: 10 } }],
+      [{ text: "Total Scenarios", options: { color: "FFFFFF" } }, { text: stats.total.toString(), options: { color: "FFFFFF" } }],
+      [{ text: "Completed", options: { color: "FFFFFF" } }, { text: (stats.passed + stats.failed + stats.blocked).toString(), options: { color: "FFFFFF" } }],
+      [{ text: "Success Rate", options: { color: "10B981", bold: true } }, { text: `${Math.round((stats.passed / (stats.total || 1)) * 100)}%`, options: { color: "10B981", bold: true } }]
+    ];
+    s2.addTable(tableData, { 
+      x: 5.8, y: 1.5, w: 3.5, 
+      border: { type: "none" }, 
+      fill: { color: "0F172A" },
+      fontSize: 14,
+      valign: 'middle'
+    });
+
+    // 3. AI Risk Analysis
     let s3 = pres.addSlide();
-    s3.addText("AI Risk Insights", { x: 0.5, y: 0.5, w: 9, h: 0.8, fontSize: 28, bold: true, color: "1e293b" });
+    s3.background = { color: "020617" };
+    s3.addText("AI RISK ASSESSMENT", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF" });
+    s3.addShape(pres.ShapeType.rect, { x: 0.5, y: 0.8, w: 2, h: 0.05, fill: { color: "EF4444" } });
     
     if (project.insights.length > 0) {
-      const topInsights = project.insights.map(i => `• ${i.message}`);
-      // Increased y to 1.5 to prevent overlap with title
-      s3.addText(topInsights.join("\n\n"), { x: 0.5, y: 1.5, w: 9, fontSize: 12, color: "475569", align: "left", valign: "top" });
+      project.insights.forEach((insight, idx) => {
+        const yPos = 1.2 + (idx * 0.8);
+        const color = insight.type === 'RISK' ? 'EF4444' : insight.type === 'VELOCITY' ? 'F59E0B' : '6366F1';
+        
+        s3.addShape(pres.ShapeType.rect, { x: 0.5, y: yPos, w: 0.1, h: 0.6, fill: { color: color } });
+        s3.addText(insight.type, { x: 0.7, y: yPos, fontSize: 10, bold: true, color: color });
+        s3.addText(insight.message, { x: 0.7, y: yPos + 0.2, w: 8.5, fontSize: 14, color: "FFFFFF" });
+      });
     } else {
-      s3.addText("No critical risks identified at this time. Project health is currently stable.", { x: 0.5, y: 1.5, w: 9, fontSize: 14, color: "94A3B8" });
+      s3.addText("NO CRITICAL RISKS DETECTED IN CURRENT CYCLE", { x: 0.5, y: 2.0, w: 9, fontSize: 20, color: "10B981", align: "center" });
     }
 
     console.log("Generating buffer...");

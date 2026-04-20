@@ -80,14 +80,20 @@ model Assignment {
 
 model Defect {
   id             String    @id @default(cuid())
-  title          String
-  description    String?
+  externalId     String?   // Issue Number
+  title          String    // Issue Name
+  description    String?   // Further Info
   status         String    @default("OPEN") // OPEN, FIXED, VERIFIED, CLOSED
-  severity       String    @default("MEDIUM")
+  severity       String    @default("MEDIUM") // P1, P2, P3, P4
+  owner          String?   // Issue Owner
+  actionPlan     String?   // Action Plan
+  futImpact      String?   // FUT Impact
+  blockedCases   String?   // Blocked test info
   project        Project   @relation(fields: [projectId], references: [id])
   projectId      String
   relatedCase    TestCase? @relation(fields: [relatedCaseId], references: [id])
   relatedCaseId  String?
+  raisedAt       DateTime  @default(now())
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 }

@@ -63,6 +63,9 @@ const generateInsights = async (projectId) => {
     You are the AI Advisor for TestNexus. Analyze the following data for the project "${project.name}".
     
     Project Stats:
+    - Current Date: ${new Date().toLocaleDateString()}
+    - Start Date: ${project.startDate || project.createdAt}
+    - Go-Live Date: ${project.goLiveDate || 'Not set'}
     - Total Cases: ${totalCases}
     - Completed: ${completedCases}
     - Breakdowns: ${JSON.stringify(stats)}
@@ -71,13 +74,13 @@ const generateInsights = async (projectId) => {
     ${testers.map(t => `${t.name}: ${t.assignments.length} cases assigned in this project`).join('\n')}
 
     Rules:
-    1. Detect "Slippage" if completion is low.
+    1. Detect "Slippage" if velocity is insufficient to meet the Go-Live date.
     2. Identify "High Risk Areas" where failure rates are high (>20%).
     3. Suggest "Workload Balancing" if one tester is overloaded.
-    4. Provide "Smart Advice" (e.g., prioritize blockers).
+    4. Provide "Smart Advice" (e.g., prioritize blockers or shift focus to critical modules).
 
     Respond with a JSON array:
-    { "type": "RISK|VELOCITY|WORKLOAD|ADVICE", "message": "string", "category": "string", "isActionable": boolean }
+    [ { "type": "RISK|VELOCITY|WORKLOAD|ADVICE", "message": "string", "category": "string", "isActionable": boolean } ]
   `;
 
   try {
