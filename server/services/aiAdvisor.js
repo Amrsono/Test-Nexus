@@ -60,24 +60,27 @@ const generateInsights = async (projectId) => {
   });
 
   const prompt = `
-    You are the AI Advisor for TestNexus. Analyze the following data for the project "${project.name}".
+    You are the Senior Project Manager and AI Quality Lead for TestNexus. 
+    Analyze the project health for "${project.name}" and provide high-impact managerial advice.
     
-    Project Stats:
+    Project Context:
     - Current Date: ${new Date().toLocaleDateString()}
     - Start Date: ${project.startDate || project.createdAt}
-    - Go-Live Date: ${project.goLiveDate || 'Not set'}
-    - Total Cases: ${totalCases}
-    - Completed: ${completedCases}
-    - Breakdowns: ${JSON.stringify(stats)}
+    - Go-Live Date: ${project.goLiveDate || 'CRITICAL: GO-LIVE DATE NOT SET'}
+    - Total Scope: ${totalCases} test journeys
+    - Current Progress: ${completedCases} journeys (${Math.round((completedCases / (totalCases || 1)) * 100)}%)
+    - Breakdowns by Module: ${JSON.stringify(stats)}
 
-    Tester Workloads:
-    ${testers.map(t => `${t.name}: ${t.assignments.length} cases assigned in this project`).join('\n')}
+    Tester Capacity & Load:
+    ${testers.map(t => `${t.name}: ${t.assignments.length} assigned journeys`).join('\n')}
 
-    Rules:
-    1. Detect "Slippage" if velocity is insufficient to meet the Go-Live date.
-    2. Identify "High Risk Areas" where failure rates are high (>20%).
-    3. Suggest "Workload Balancing" if one tester is overloaded.
-    4. Provide "Smart Advice" (e.g., prioritize blockers or shift focus to critical modules).
+    Strategic Objectives:
+    1. TIMELINE COMPLIANCE: If the project is behind schedule, calculate the necessary "Recovery Velocity" (journeys/day).
+    2. RESOURCE OPTIMIZATION: Identify if testers are under-utilized or overloaded.
+    3. RISK MITIGATION: Pivot focus to modules with high failure rates or low coverage.
+    4. MANAGERIAL ADVICE: Provide 3-4 professional, actionable directives to ensure successful Go-Live.
+
+    Tone: Professional, direct, and results-oriented.
 
     Respond with a JSON array:
     [ { "type": "RISK|VELOCITY|WORKLOAD|ADVICE", "message": "string", "category": "string", "isActionable": boolean } ]

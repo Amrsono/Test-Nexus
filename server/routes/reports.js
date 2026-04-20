@@ -230,11 +230,52 @@ router.get('/project/:id/ppt', async (req, res) => {
       s5.addText("NO OPEN P1 OR P2 BLOCKERS DETECTED", { x: 0.5, y: 2.0, w: 9, fontSize: 20, color: "10B981", align: "center" });
     }
 
-    // 6. AI Risk Analysis
+    // 6. Project Management Advisory (NEW)
+    const remainingCases = stats.total - (stats.passed + stats.failed + stats.blocked);
+    const today = new Date();
+    const targetDate = new Date(goLiveDate);
+    const diffTime = targetDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const requiredVelocity = diffDays > 0 ? (remainingCases / diffDays).toFixed(1) : remainingCases;
+
     let s6 = pres.addSlide();
     s6.background = { color: "020617" };
-    s6.addText("AI RISK ASSESSMENT", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF", fontFace: "Arial" });
-    s6.addShape(pres.ShapeType.rect, { x: 0.5, y: 0.8, w: 2, h: 0.05, fill: { color: "6366F1" } });
+    s6.addText("PROJECT MANAGEMENT ADVISORY", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF", fontFace: "Arial" });
+    s6.addShape(pres.ShapeType.rect, { x: 0.5, y: 0.8, w: 2, h: 0.05, fill: { color: "10B981" } });
+
+    // Velocity Target Card
+    s6.addShape(pres.ShapeType.rect, { x: 0.5, y: 1.2, w: 3, h: 1.5, fill: { color: "1E293B" }, line: { color: "10B981", pt: 2 } });
+    s6.addText("TARGET VELOCITY", { x: 0.6, y: 1.4, w: 2.8, fontSize: 12, bold: true, color: "10B981", fontFace: "Arial", align: 'center' });
+    s6.addText(requiredVelocity.toString(), { x: 0.6, y: 1.8, w: 2.8, fontSize: 36, bold: true, color: "FFFFFF", fontFace: "Arial", align: 'center' });
+    s6.addText("JOURNEYS / DAY", { x: 0.6, y: 2.3, w: 2.8, fontSize: 10, color: "94A3B8", fontFace: "Arial", align: 'center' });
+
+    // Timeline Status
+    s6.addText("TIMELINE HEALTH", { x: 4.0, y: 1.2, fontSize: 14, bold: true, color: "FFFFFF", fontFace: "Arial" });
+    const isBehind = diffDays < 7 && remainingCases > 50; // Simple logic for demo
+    s6.addText(isBehind ? "CRITICAL SLIPPAGE RISK" : "ON TRACK FOR GO-LIVE", { 
+      x: 4.0, y: 1.5, fontSize: 18, bold: true, color: isBehind ? "EF4444" : "10B981", fontFace: "Arial" 
+    });
+    s6.addText(`Days until Go-Live: ${diffDays > 0 ? diffDays : 'OVERDUE'}`, { x: 4.0, y: 1.8, fontSize: 12, color: "94A3B8", fontFace: "Arial" });
+
+    // PM Directives (AI Suggestions)
+    s6.addText("MANAGERIAL DIRECTIVES", { x: 0.5, y: 3.0, fontSize: 16, bold: true, color: "6366F1", fontFace: "Arial" });
+    const pmInsights = project.insights.filter(i => i.type === 'ADVICE' || i.type === 'VELOCITY').slice(0, 3);
+    
+    if (pmInsights.length > 0) {
+      pmInsights.forEach((insight, idx) => {
+        const yOffset = 3.4 + (idx * 0.6);
+        s6.addShape(pres.ShapeType.ellipse, { x: 0.5, y: yOffset + 0.1, w: 0.1, h: 0.1, fill: { color: "6366F1" } });
+        s6.addText(insight.message, { x: 0.7, y: yOffset, w: 8.5, fontSize: 12, color: "FFFFFF", fontFace: "Arial" });
+      });
+    } else {
+      s6.addText("Maintain current velocity to ensure stable release transition.", { x: 0.7, y: 3.4, w: 8.5, fontSize: 12, color: "94A3B8", fontFace: "Arial", italic: true });
+    }
+
+    // 7. AI Risk Analysis
+    let s7 = pres.addSlide();
+    s7.background = { color: "020617" };
+    s7.addText("AI RISK ASSESSMENT", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF", fontFace: "Arial" });
+    s7.addShape(pres.ShapeType.rect, { x: 0.5, y: 0.8, w: 2, h: 0.05, fill: { color: "6366F1" } });
     
     if (project.insights.length > 0) {
       project.insights.forEach((insight, idx) => {
@@ -242,20 +283,20 @@ router.get('/project/:id/ppt', async (req, res) => {
         const color = insight.type === 'RISK' ? 'EF4444' : insight.type === 'VELOCITY' ? 'F59E0B' : '6366F1';
         
         // Visual indicator bar
-        s6.addShape(pres.ShapeType.rect, { x: 0.5, y: yPos, w: 0.06, h: 0.7, fill: { color: color } });
+        s7.addShape(pres.ShapeType.rect, { x: 0.5, y: yPos, w: 0.06, h: 0.7, fill: { color: color } });
         
         // Category Label (smaller, capitalized)
-        s6.addText(insight.type.toUpperCase(), { 
+        s7.addText(insight.type.toUpperCase(), { 
           x: 0.7, y: yPos, fontSize: 9, bold: true, color: color, fontFace: "Arial", charSpacing: 1 
         });
         
         // The actual insight message (positioned lower to avoid overlap)
-        s6.addText(insight.message, { 
+        s7.addText(insight.message, { 
           x: 0.7, y: yPos + 0.25, w: 8.5, h: 0.6, fontSize: 13, color: "FFFFFF", fontFace: "Arial", valign: 'top' 
         });
       });
     } else {
-      s6.addText("NO CRITICAL RISKS DETECTED IN CURRENT CYCLE", { x: 0.5, y: 2.0, w: 9, fontSize: 20, color: "10B981", align: "center", fontFace: "Arial" });
+      s7.addText("NO CRITICAL RISKS DETECTED IN CURRENT CYCLE", { x: 0.5, y: 2.0, w: 9, fontSize: 20, color: "10B981", align: "center", fontFace: "Arial" });
     }
 
     console.log("Generating buffer...");
