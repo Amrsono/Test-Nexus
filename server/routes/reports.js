@@ -54,23 +54,23 @@ router.get('/project/:id/ppt', async (req, res) => {
     s1.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.1, fill: { color: "6366F1" } }); // Indigo Top Accent
     
     s1.addText("EXECUTIVE QUALITY INSIGHTS", { 
-      x: 0.5, y: 1.0, w: "90%", fontSize: 14, color: "6366F1", bold: true, charSpacing: 4 
+      x: 0.5, y: 1.0, w: "90%", fontSize: 14, color: "6366F1", bold: true, charSpacing: 4, fontFace: "Arial"
     });
     s1.addText(project.name.toUpperCase(), { 
-      x: 0.5, y: 1.5, w: "90%", fontSize: 48, color: "FFFFFF", bold: true 
+      x: 0.5, y: 1.5, w: "90%", fontSize: 48, color: "FFFFFF", bold: true, fontFace: "Arial"
     });
     s1.addText("AUTOMATED PROJECT READINESS REPORT", { 
-      x: 0.5, y: 2.2, w: "90%", fontSize: 18, color: "94A3B8" 
+      x: 0.5, y: 2.2, w: "90%", fontSize: 18, color: "94A3B8", fontFace: "Arial"
     });
     
     s1.addText(`GENERATED ON: ${new Date().toLocaleDateString()}`, { 
-      x: 0.5, y: 4.5, fontSize: 12, color: "475569" 
+      x: 0.5, y: 4.5, fontSize: 12, color: "475569", fontFace: "Arial"
     });
 
     // 2. Status Distribution (Pie Chart)
     let s2 = pres.addSlide();
     s2.background = { color: "020617" };
-    s2.addText("EXECUTION COMPOSITION", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF" });
+    s2.addText("EXECUTION COMPOSITION", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF", fontFace: "Arial" });
     s2.addShape(pres.ShapeType.rect, { x: 0.5, y: 0.8, w: 2, h: 0.05, fill: { color: "6366F1" } });
 
     const chartData = [
@@ -103,7 +103,8 @@ router.get('/project/:id/ppt', async (req, res) => {
       border: { type: "none" }, 
       fill: { color: "0F172A" },
       fontSize: 14,
-      valign: 'middle'
+      valign: 'middle',
+      fontFace: "Arial"
     });
 
     // 3. Execution Burndown (Line Chart)
@@ -136,7 +137,7 @@ router.get('/project/:id/ppt', async (req, res) => {
 
     let s3 = pres.addSlide();
     s3.background = { color: "020617" };
-    s3.addText("EXECUTION BURNDOWN", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF" });
+    s3.addText("EXECUTION BURNDOWN", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF", fontFace: "Arial" });
     s3.addShape(pres.ShapeType.rect, { x: 0.5, y: 0.8, w: 2, h: 0.05, fill: { color: "3B82F6" } });
 
     s3.addChart(pres.ChartType.line, [
@@ -160,7 +161,7 @@ router.get('/project/:id/ppt', async (req, res) => {
     // 4. Defect Landscape
     let s4 = pres.addSlide();
     s4.background = { color: "020617" };
-    s4.addText("DEFECT LANDSCAPE", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF" });
+    s4.addText("DEFECT LANDSCAPE", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF", fontFace: "Arial" });
     s4.addShape(pres.ShapeType.rect, { x: 0.5, y: 0.8, w: 2, h: 0.05, fill: { color: "F59E0B" } });
 
     const defectSeverityData = [
@@ -185,7 +186,7 @@ router.get('/project/:id/ppt', async (req, res) => {
       [{ text: "Current Open", options: { color: "FFFFFF" } }, { text: defectStats.open.toString(), options: { color: "FFFFFF" } }],
       [{ text: "P1 / P2 Ratio", options: { color: "EF4444", bold: true } }, { text: `${Math.round(((defectStats.p1 + defectStats.p2) / (defectStats.total || 1)) * 100)}%`, options: { color: "EF4444", bold: true } }]
     ];
-    s4.addTable(defectTable, { x: 5.8, y: 1.5, w: 3.5, fill: { color: "0F172A" }, fontSize: 14 });
+    s4.addTable(defectTable, { x: 5.8, y: 1.5, w: 3.5, fill: { color: "0F172A" }, fontSize: 14, fontFace: "Arial" });
 
     // 5. Critical Blocker Analysis
     const criticalDefects = project.defects
@@ -194,7 +195,7 @@ router.get('/project/:id/ppt', async (req, res) => {
 
     let s5 = pres.addSlide();
     s5.background = { color: "020617" };
-    s5.addText("CRITICAL BLOCKER ANALYSIS", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF" });
+    s5.addText("CRITICAL BLOCKER ANALYSIS", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF", fontFace: "Arial" });
     s5.addShape(pres.ShapeType.rect, { x: 0.5, y: 0.8, w: 2, h: 0.05, fill: { color: "EF4444" } });
 
     if (criticalDefects.length > 0) {
@@ -222,7 +223,8 @@ router.get('/project/:id/ppt', async (req, res) => {
         x: 0.5, y: 1.2, w: 9, 
         fill: { color: "0F172A" }, 
         fontSize: 11,
-        border: { type: "solid", color: "1E293B", pt: 1 }
+        border: { type: "solid", color: "1E293B", pt: 1 },
+        fontFace: "Arial"
       });
     } else {
       s5.addText("NO OPEN P1 OR P2 BLOCKERS DETECTED", { x: 0.5, y: 2.0, w: 9, fontSize: 20, color: "10B981", align: "center" });
@@ -231,20 +233,29 @@ router.get('/project/:id/ppt', async (req, res) => {
     // 6. AI Risk Analysis
     let s6 = pres.addSlide();
     s6.background = { color: "020617" };
-    s6.addText("AI RISK ASSESSMENT", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF" });
+    s6.addText("AI RISK ASSESSMENT", { x: 0.5, y: 0.3, fontSize: 24, bold: true, color: "FFFFFF", fontFace: "Arial" });
     s6.addShape(pres.ShapeType.rect, { x: 0.5, y: 0.8, w: 2, h: 0.05, fill: { color: "6366F1" } });
     
     if (project.insights.length > 0) {
       project.insights.forEach((insight, idx) => {
-        const yPos = 1.2 + (idx * 0.8);
+        const yPos = 1.2 + (idx * 1.0); // Increased gap from 0.8 to 1.0
         const color = insight.type === 'RISK' ? 'EF4444' : insight.type === 'VELOCITY' ? 'F59E0B' : '6366F1';
         
-        s6.addShape(pres.ShapeType.rect, { x: 0.5, y: yPos, w: 0.1, h: 0.6, fill: { color: color } });
-        s6.addText(insight.type, { x: 0.7, y: yPos, fontSize: 10, bold: true, color: color });
-        s6.addText(insight.message, { x: 0.7, y: yPos + 0.2, w: 8.5, fontSize: 14, color: "FFFFFF" });
+        // Visual indicator bar
+        s6.addShape(pres.ShapeType.rect, { x: 0.5, y: yPos, w: 0.06, h: 0.7, fill: { color: color } });
+        
+        // Category Label (smaller, capitalized)
+        s6.addText(insight.type.toUpperCase(), { 
+          x: 0.7, y: yPos, fontSize: 9, bold: true, color: color, fontFace: "Arial", charSpacing: 1 
+        });
+        
+        // The actual insight message (positioned lower to avoid overlap)
+        s6.addText(insight.message, { 
+          x: 0.7, y: yPos + 0.25, w: 8.5, h: 0.6, fontSize: 13, color: "FFFFFF", fontFace: "Arial", valign: 'top' 
+        });
       });
     } else {
-      s6.addText("NO CRITICAL RISKS DETECTED IN CURRENT CYCLE", { x: 0.5, y: 2.0, w: 9, fontSize: 20, color: "10B981", align: "center" });
+      s6.addText("NO CRITICAL RISKS DETECTED IN CURRENT CYCLE", { x: 0.5, y: 2.0, w: 9, fontSize: 20, color: "10B981", align: "center", fontFace: "Arial" });
     }
 
     console.log("Generating buffer...");
