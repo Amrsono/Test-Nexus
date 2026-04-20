@@ -34,6 +34,10 @@ router.post('/export', async (req, res) => {
       'Summary': s.summary,
       'Steps': s.steps,
       'Expected Result': s.expectedResult,
+      'Order Build': s.orderBuild || 'N/A',
+      'Order Completion': s.orderCompletion || 'N/A',
+      'T&C Assurance': s.tcAssurance || 'N/A',
+      'Billing': s.billing || 'N/A',
       'Priority': s.priority || 'MEDIUM',
       'Module': s.module || 'AI Draft'
     }));

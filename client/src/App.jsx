@@ -103,6 +103,36 @@ const App = () => {
     }
   }, [selectedProjectId]);
 
+  // Sync Drafts with LocalStorage for persistence across tabs/refresh
+  useEffect(() => {
+    const savedDrafts = localStorage.getItem('nexus_drafts');
+    if (savedDrafts) {
+      try {
+        setGeneratedScenarios(JSON.parse(savedDrafts));
+      } catch (e) {
+        console.error('Failed to load drafts', e);
+      }
+    }
+    
+    const savedReqs = localStorage.getItem('nexus_lab_reqs');
+    if (savedReqs) setLabRequirements(savedReqs);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('nexus_drafts', JSON.stringify(generatedScenarios));
+  }, [generatedScenarios]);
+
+  useEffect(() => {
+    localStorage.setItem('nexus_lab_reqs', labRequirements);
+  }, [labRequirements]);
+
+  const clearDrafts = () => {
+    if (window.confirm('Are you sure you want to discard all current drafts?')) {
+      setGeneratedScenarios([]);
+      localStorage.removeItem('nexus_drafts');
+    }
+  };
+
   const fetchTesters = async () => {
     try {
       const res = await axios.get(`${API_BASE}/users`);
@@ -1294,6 +1324,13 @@ const App = () => {
                   </div>
                   <div className="flex flex-wrap gap-4">
                     <button 
+                      onClick={clearDrafts}
+                      className={`flex items-center gap-2 px-6 py-3 border rounded-2xl font-bold transition-all hover:scale-105 ${isDark ? 'border-rose-500/30 text-rose-500 hover:bg-rose-500/10' : 'border-rose-200 text-rose-600 hover:bg-rose-50 shadow-sm'}`}
+                    >
+                      <Trash2 size={18} />
+                      Discard All Journeys
+                    </button>
+                    <button 
                       onClick={handleExportLabExcel}
                       className={`flex items-center gap-2 px-6 py-3 ${isDark ? 'bg-white/10 text-white border-white/20' : 'bg-white text-slate-700 border-slate-200'} border rounded-2xl font-bold hover:scale-105 transition-all shadow-lg`}
                     >
@@ -1379,6 +1416,28 @@ const App = () => {
                                   <CheckCircle2 size={12} /> Expected Result
                                 </h5>
                                 <p className={`text-xs leading-relaxed ${isDark ? 'text-emerald-400/80' : 'text-emerald-600'}`}>{s.expectedResult}</p>
+                              </div>
+
+                              {/* New Validation Highlights Section */}
+                              <div className={`mt-4 pt-4 border-t ${isDark ? 'border-white/5' : 'border-slate-100'} space-y-3`}>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className={`p-2.5 rounded-xl ${isDark ? 'bg-primary/5' : 'bg-slate-50'} border ${isDark ? 'border-primary/10' : 'border-slate-100'}`}>
+                                    <span className={`text-[9px] font-black uppercase tracking-tighter ${subTextColor} block mb-1`}>Order Build</span>
+                                    <p className={`text-[10px] leading-tight font-bold ${textColor} truncate`}>{s.orderBuild || 'N/A'}</p>
+                                  </div>
+                                  <div className={`p-2.5 rounded-xl ${isDark ? 'bg-emerald-500/5' : 'bg-emerald-50'} border ${isDark ? 'border-emerald-500/10' : 'border-emerald-100'}`}>
+                                    <span className={`text-[9px] font-black uppercase tracking-tighter text-emerald-500/70 block mb-1`}>Status Sync</span>
+                                    <p className={`text-[10px] leading-tight font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'} truncate`}>{s.orderCompletion || 'N/A'}</p>
+                                  </div>
+                                  <div className={`p-2.5 rounded-xl ${isDark ? 'bg-indigo-500/5' : 'bg-indigo-50'} border ${isDark ? 'border-indigo-500/10' : 'border-indigo-100'}`}>
+                                    <span className={`text-[9px] font-black uppercase tracking-tighter text-indigo-500/70 block mb-1`}>T&C / Comms</span>
+                                    <p className={`text-[10px] leading-tight font-bold ${isDark ? 'text-indigo-400' : 'text-indigo-700'} truncate`}>{s.tcAssurance || 'N/A'}</p>
+                                  </div>
+                                  <div className={`p-2.5 rounded-xl ${isDark ? 'bg-amber-500/5' : 'bg-amber-50'} border ${isDark ? 'border-amber-500/10' : 'border-amber-100'}`}>
+                                    <span className={`text-[9px] font-black uppercase tracking-tighter text-amber-500/70 block mb-1`}>Billing</span>
+                                    <p className={`text-[10px] leading-tight font-bold ${isDark ? 'text-amber-400' : 'text-amber-700'} truncate`}>{s.billing || 'N/A'}</p>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                          </div>
@@ -1782,6 +1841,55 @@ const App = () => {
                   onChange={(e) => setEditingScenarioData({...editingScenarioData, expectedResult: e.target.value})}
                   required
                 />
+              </div>
+
+              {/* New Validation Highlights in Edit Modal */}
+              <div className="pt-4 border-t border-white/5">
+                <h4 className={`text-xs font-black uppercase tracking-[0.2em] mb-6 ${isDark ? 'text-primary' : 'text-indigo-600'} flex items-center gap-2`}>
+                  <Zap size={14} /> Validation Highlights
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Order Build (Prices, MCPR)</label>
+                    <input 
+                      type="text" 
+                      className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs focus:border-primary outline-none`}
+                      value={editingScenarioData.orderBuild || ''}
+                      onChange={(e) => setEditingScenarioData({...editingScenarioData, orderBuild: e.target.value})}
+                      placeholder="e.g. Price: £59.99, MCPR: Included"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Order Completion (Status)</label>
+                    <input 
+                      type="text" 
+                      className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs focus:border-primary outline-none`}
+                      value={editingScenarioData.orderCompletion || ''}
+                      onChange={(e) => setEditingScenarioData({...editingScenarioData, orderCompletion: e.target.value})}
+                      placeholder="e.g. Status: CLOSED, Provisioning: SUCCESS"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>T&C Assurance & Comms</label>
+                    <input 
+                      type="text" 
+                      className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs focus:border-primary outline-none`}
+                      value={editingScenarioData.tcAssurance || ''}
+                      onChange={(e) => setEditingScenarioData({...editingScenarioData, tcAssurance: e.target.value})}
+                      placeholder="e.g. Welcome SMS sent, T&Cs e-mailed"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Billing (First Bill)</label>
+                    <input 
+                      type="text" 
+                      className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs focus:border-primary outline-none`}
+                      value={editingScenarioData.billing || ''}
+                      onChange={(e) => setEditingScenarioData({...editingScenarioData, billing: e.target.value})}
+                      placeholder="e.g. Pro-rated charge + Advance payment"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-4 pt-4">

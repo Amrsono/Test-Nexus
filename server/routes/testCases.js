@@ -160,6 +160,10 @@ router.post('/bulk', async (req, res) => {
           expectedResult: tc.expectedResult,
           priority: tc.priority || 'MEDIUM',
           module: tc.module || 'General',
+          orderBuild: tc.orderBuild || null,
+          orderCompletion: tc.orderCompletion || null,
+          tcAssurance: tc.tcAssurance || null,
+          billing: tc.billing || null,
           suiteId: suite.id,
           status: 'PENDING'
         }))

@@ -52,6 +52,10 @@ model TestCase {
   status          String       @default("PENDING") // PENDING, PASS, FAIL, BLOCKED
   priority        String       @default("MEDIUM")  // LOW, MEDIUM, HIGH, CRITICAL
   module          String?
+  orderBuild      String?      // Prices, MCPR, Contract summary
+  orderCompletion String?
+  tcAssurance     String?      // T&C Assurance and Comms
+  billing         String?
   suite           TestSuite    @relation(fields: [suiteId], references: [id])
   suiteId         String
   assignments     Assignment[]
