@@ -1652,7 +1652,85 @@ const App = () => {
           </div>
         </div>
       )}
+
+      {/* Edit Scenario Modal */}
+      {isEditScenarioModalOpen && editingScenarioData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className={`${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'} border rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200`}>
+            <div className="p-6 border-b border-white/10 flex justify-between items-center">
+              <h3 className={`text-xl font-black ${textColor}`}>Refine Test Journey</h3>
+              <button onClick={() => setIsEditScenarioModalOpen(false)} className={subTextColor}>×</button>
+            </div>
+            <form onSubmit={handleSaveEditedScenario} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5 col-span-2">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Scenario Summary</label>
+                  <input 
+                    type="text" 
+                    className={`w-full p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-sm`}
+                    value={editingScenarioData.summary}
+                    onChange={(e) => setEditingScenarioData({...editingScenarioData, summary: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Module / Release</label>
+                  <input 
+                    type="text" 
+                    className={`w-full p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-sm`}
+                    value={editingScenarioData.module}
+                    onChange={(e) => setEditingScenarioData({...editingScenarioData, module: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Priority</label>
+                  <select 
+                    className={`w-full p-3 rounded-xl border ${isDark ? 'bg-slate-800 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'} text-sm`}
+                    value={editingScenarioData.priority}
+                    onChange={(e) => setEditingScenarioData({...editingScenarioData, priority: e.target.value})}
+                  >
+                    <option value="HIGH">HIGH</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="LOW">LOW</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Test Steps</label>
+                <textarea 
+                  className={`w-full p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-sm h-32 resize-none`}
+                  value={editingScenarioData.steps}
+                  onChange={(e) => setEditingScenarioData({...editingScenarioData, steps: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Expected Result</label>
+                <textarea 
+                  className={`w-full p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-sm h-20 resize-none`}
+                  value={editingScenarioData.expectedResult}
+                  onChange={(e) => setEditingScenarioData({...editingScenarioData, expectedResult: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="pt-4 flex gap-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsEditScenarioModalOpen(false)}
+                  className={`flex-1 py-3 border rounded-xl font-bold ${isDark ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-600'} hover:bg-slate-50 transition-all`}
+                >
+                  Discard Changes
+                </button>
+                <button type="submit" className="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/80 transition-all shadow-lg shadow-primary/20">
+                  Update Journey
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
+
   )}
 
 
