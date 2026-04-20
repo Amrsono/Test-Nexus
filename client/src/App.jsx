@@ -6,7 +6,8 @@ import {
 } from 'recharts';
 import { 
   Activity, CheckCircle2, AlertCircle, Clock, 
-  Upload, Brain, Users, Bug, ArrowUpRight, TrendingDown, Settings, Plus, Terminal, Maximize2 
+  Upload, Brain, Users, Bug, ArrowUpRight, TrendingDown, Settings, Plus, Terminal, Maximize2, Sparkles,
+  ShoppingBag, Headphones, Smartphone, Home, Trash2, Monitor, MapPin, Layers
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -23,6 +24,9 @@ const App = () => {
   const [insights, setInsights] = useState([]);
   const [loading, setLoading] = useState(true);
   const [agentLogs, setAgentLogs] = useState([]);
+  const [isEditScenarioModalOpen, setIsEditScenarioModalOpen] = useState(false);
+  const [editingScenarioIndex, setEditingScenarioIndex] = useState(null);
+  const [editingScenarioData, setEditingScenarioData] = useState(null);
   const [unassignedCases, setUnassignedCases] = useState([]);
   const [testers, setTesters] = useState([]);
   const [selectedTesterId, setSelectedTesterId] = useState('');
@@ -46,9 +50,31 @@ const App = () => {
     module: ''
   });
 
+  const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
+  const [newProjName, setNewProjName] = useState('');
+
+  const [currentView, setCurrentView] = useState('dashboard'); // dashboard, lab
+  const [labRequirements, setLabRequirements] = useState('');
+  const [generatedScenarios, setGeneratedScenarios] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
   const [localTheme, setLocalTheme] = useState('#f8fafc');
 
+  const [labConfig, setLabConfig] = useState({
+    release: '',
+    status: '',
+    channels: [], // Retail, Call Center
+    accountTypes: [], // HBB, Mobile
+    journeyTypes: [], // New connection, Upgrade, Downgrade
+    tcSteps: '',
+    tcExpectedResults: '',
+    priority: 'MEDIUM'
+  });
+  const [customJourneyType, setCustomJourneyType] = useState('');
+  const [extraJourneys, setExtraJourneys] = useState([]);
+
   const selectedProject = projects.find(p => p.id === selectedProjectId);
+
 
   useEffect(() => {
     if (selectedProject?.themeColor) {
@@ -147,12 +173,18 @@ const App = () => {
     }
   };
 
-  const handleCreateProject = async () => {
-    const name = window.prompt('Enter new project name:');
-    if (!name?.trim()) return;
+  const handleCreateProject = () => {
+    setNewProjName('');
+    setIsCreateProjectModalOpen(true);
+  };
+
+  const submitCreateProject = async (e) => {
+    e.preventDefault();
+    if (!newProjName.trim()) return;
     try {
       setLoading(true);
-      const res = await axios.post(`${API_BASE}/projects`, { name: name.trim(), themeColor: '#f8fafc' });
+      setIsCreateProjectModalOpen(false);
+      const res = await axios.post(`${API_BASE}/projects`, { name: newProjName.trim(), themeColor: '#f8fafc' });
       await fetchProjects();
       setSelectedProjectId(res.data.id);
     } catch (err) {
@@ -465,6 +497,92 @@ const App = () => {
     }
   };
 
+  const handleGenerateScenarios = async () => {
+    if (!labRequirements.trim()) return;
+    try {
+      setIsGenerating(true);
+      setAgentLogs(['System: Priming AI Drafting Lab...']);
+      const res = await axios.post(`${API_BASE}/generator/generate`, {
+        requirements: labRequirements,
+        options: labConfig
+      });
+      setGeneratedScenarios(res.data);
+      setAgentLogs(prev => [...prev, 'System: Scenarios drafted successfully.']);
+    } catch (err) {
+      console.error('Generation failed', err);
+      const isQuota = err.response?.data?.error === 'AI_QUOTA_EXCEEDED' || err.message?.includes('429');
+      
+      if (isQuota) {
+        setAgentLogs(prev => [...prev, 'System: AI is currently busy. Please wait 30s and try again.']);
+        alert('AI Quota Exceeded: Gemini is processing too many requests right now. Please wait about 30-60 seconds before trying again.');
+      } else {
+        alert('Failed to generate scenarios. Please check your API key or requirements complexity.');
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleExportLabExcel = async () => {
+    if (generatedScenarios.length === 0) return;
+    try {
+      const res = await axios.post(`${API_BASE}/generator/export`, { 
+        scenarios: generatedScenarios,
+        projectName: selectedProject?.name || 'Test_Nexus'
+      }, { responseType: 'blob' });
+      
+      // Robust blob handling for browser compatibility
+      const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      const fileName = `${(selectedProject?.name || 'Test_Nexus').replace(/[^a-z0-9]/gi, '_')}_Draft.xlsx`;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err) {
+      console.error('Excel export failed', err);
+      alert('Failed to export Excel. Please try again.');
+    }
+  };
+
+  const handleCommitScenarios = async () => {
+    if (!selectedProjectId || generatedScenarios.length === 0) return;
+    if (!window.confirm(`Save ${generatedScenarios.length} scenarios to ${selectedProject.name}?`)) return;
+
+    try {
+      setLoading(true);
+      // Create a default suite for AI generated cases if none exists or just use a generic name
+      const suiteName = 'AI Generated - ' + new Date().toLocaleDateString();
+      
+      // We'll reuse the upload-style logic but for JSON
+      await axios.post(`${API_BASE}/test-cases/bulk`, {
+        projectId: selectedProjectId,
+        suiteName,
+        testCases: generatedScenarios
+      });
+
+      alert('Scenarios saved to project!');
+      setGeneratedScenarios([]);
+      setLabRequirements('');
+      setCurrentView('dashboard');
+      fetchStats();
+      fetchAllTestCases();
+    } catch (err) {
+      console.error('Commit failed', err);
+      alert('Failed to save scenarios.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const handleThemeChange = async (color) => {
     setLocalTheme(color);
@@ -476,6 +594,38 @@ const App = () => {
       console.error('Theme change failed', err);
     }
   };
+
+  const handleDiscardScenario = (index) => {
+    setGeneratedScenarios(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const openEditScenario = (index) => {
+    setEditingScenarioIndex(index);
+    setEditingScenarioData({ ...generatedScenarios[index] });
+    setIsEditScenarioModalOpen(true);
+  };
+
+  const handleSaveEditedScenario = (e) => {
+    e.preventDefault();
+    if (editingScenarioIndex === null || !editingScenarioData) return;
+    
+    const updated = [...generatedScenarios];
+    updated[editingScenarioIndex] = editingScenarioData;
+    setGeneratedScenarios(updated);
+    setIsEditScenarioModalOpen(false);
+    setEditingScenarioIndex(null);
+    setEditingScenarioData(null);
+  };
+
+  // Scroll to results when scenarios are generated
+  useEffect(() => {
+    if (generatedScenarios.length > 0 && !isGenerating) {
+      const resultsSection = document.getElementById('lab-results-applet');
+      if (resultsSection) {
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [generatedScenarios.length, isGenerating]);
 
   const isDark = localTheme === '#1a1a2e' || localTheme === '#020617';
   const textColor = isDark ? 'text-white' : 'text-slate-900';
@@ -613,221 +763,667 @@ const App = () => {
             <Plus size={18} />
           </button>
         </div>
+        {/* View Switcher */}
+        <div className={`flex gap-6 mt-4 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+          <button 
+            onClick={() => setCurrentView('dashboard')}
+            className={`pb-4 px-2 text-sm font-bold transition-all relative ${
+              currentView === 'dashboard' 
+              ? (isDark ? 'text-primary' : 'text-primary') 
+              : (isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-500 hover:text-slate-700')
+            }`}
+          >
+            Dashboard
+            {currentView === 'dashboard' && <div className="absolute bottom-0 left-0 w-full h-1 bg-primary rounded-t-full" />}
+          </button>
+          <button 
+            onClick={() => setCurrentView('lab')}
+            className={`pb-4 px-2 text-sm font-bold transition-all relative flex items-center gap-2 ${
+              currentView === 'lab' 
+              ? (isDark ? 'text-primary' : 'text-primary') 
+              : (isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-500 hover:text-slate-700')
+            }`}
+          >
+            <Brain size={16} />
+            Scenario Lab
+            {currentView === 'lab' && <div className="absolute bottom-0 left-0 w-full h-1 bg-primary rounded-t-full" />}
+          </button>
+        </div>
       </header>
-
       {loading && !selectedProjectId ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            {/* Top Hero: Executive Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <MetricCard label="Total Cases" value={stats.total} icon={<Activity className="text-blue-500" />} change="+12%" isDark={isDark} />
-              <MetricCard label="Passed" value={stats.passed} icon={<CheckCircle2 className="text-emerald-500" />} change="78%" trend="up" isDark={isDark} />
-              <MetricCard label="Blocked" value={stats.blocked} icon={<AlertCircle className="text-amber-500" />} change="4 cases" trend="down" isDark={isDark} />
-              <MetricCard label="Health Status" value={stats.total > 0 ? "Active" : "New"} icon={<TrendingDown className="text-indigo-500" />} status="LIVE" isDark={isDark} />
-            </div>
-
-            <div className={`${cardBg} p-8 rounded-3xl shadow-xl`}>
-              <div className="flex justify-between items-center mb-8">
-                <div>
-                  <h3 className={`text-xl font-bold ${textColor}`}>Execution Burndown</h3>
-                  <p className={`text-sm ${subTextColor}`}>Actual vs. Ideal Progress</p>
-                </div>
+        currentView === 'dashboard' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-8">
+              {/* Top Hero: Executive Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <MetricCard label="Total Cases" value={stats.total} icon={<Activity className="text-blue-500" />} change="+12%" isDark={isDark} />
+                <MetricCard label="Passed" value={stats.passed} icon={<CheckCircle2 className="text-emerald-500" />} change="78%" trend="up" isDark={isDark} />
+                <MetricCard label="Blocked" value={stats.blocked} icon={<AlertCircle className="text-amber-500" />} change="4 cases" trend="down" isDark={isDark} />
+                <MetricCard label="Health Status" value={stats.total > 0 ? "Active" : "New"} icon={<TrendingDown className="text-indigo-500" />} status="LIVE" isDark={isDark} />
               </div>
-              <div className="h-[350px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={burndownData}>
-                    <defs>
-                      <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} minTickGap={60} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                    />
-                    <Area type="monotone" dataKey="actual" stroke="#2563eb" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" />
-                    <Line type="monotone" dataKey="ideal" stroke="#e2e8f0" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className={`${cardBg} p-6 rounded-3xl shadow-lg`}>
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className={`font-bold ${textColor} flex items-center gap-2`}>
-                    <Users size={20} className={subTextColor} />
-                    Workload Balance
-                  </h4>
-                  <div className="flex items-center gap-4">
-                    <button 
-                      onClick={() => {
-                        fetchAllTestCases();
-                        setIsTrackerOpen(true);
-                      }}
-                      className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-indigo-400' : 'text-indigo-600'} hover:opacity-70 transition-all`}
-                    >
-                      <Maximize2 size={12} />
-                      Full Tracker
-                    </button>
-                    <button 
-                      onClick={() => setIsTeamModalOpen(true)}
-                      className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-primary' : 'text-slate-500'} hover:opacity-70 transition-all`}
-                    >
-                      Manage Team
-                    </button>
+              <div className={`${cardBg} p-8 rounded-3xl shadow-xl`}>
+                <div className="flex justify-between items-center mb-8">
+                  <div>
+                    <h3 className={`text-xl font-bold ${textColor}`}>Execution Burndown</h3>
+                    <p className={`text-sm ${subTextColor}`}>Actual vs. Ideal Progress</p>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div className="max-h-[120px] overflow-y-auto pr-2 space-y-3 mb-6">
-                    {testers.map(tester => (
-                      <div key={tester.id} className="flex justify-between items-center text-sm">
-                        <span className={`${subTextColor} font-medium`}>{tester.name}</span>
-                        <div className={`w-1/2 ${isDark ? 'bg-white/10' : 'bg-slate-100'} h-2 rounded-full overflow-hidden`}>
-                          <div className="bg-blue-500 h-full transition-all" style={{ width: `${Math.min(100, (tester.assignments?.length || 0) * 20)}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="h-[350px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={burndownData}>
+                      <defs>
+                        <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} minTickGap={60} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                      />
+                      <Area type="monotone" dataKey="actual" stroke="#2563eb" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" />
+                      <Line type="monotone" dataKey="ideal" stroke="#e2e8f0" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
 
-                  <div className={`border-t ${isDark ? 'border-white/10' : 'border-slate-100'} pt-4`}>
-                    <div className="flex justify-between items-center mb-3">
-                      <h5 className={`text-xs font-bold uppercase tracking-wider ${subTextColor}`}>Pending Pool</h5>
-                      <span className="px-2 py-0.5 bg-primary/20 text-primary text-[10px] font-bold rounded-full">{unassignedCases.length} Cases</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className={`${cardBg} p-6 rounded-3xl shadow-lg`}>
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className={`font-bold ${textColor} flex items-center gap-2`}>
+                      <Users size={20} className={subTextColor} />
+                      Workload Balance
+                    </h4>
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={() => {
+                          fetchAllTestCases();
+                          setIsTrackerOpen(true);
+                        }}
+                        className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-indigo-400' : 'text-indigo-600'} hover:opacity-70 transition-all`}
+                      >
+                        <Maximize2 size={12} />
+                        Full Tracker
+                      </button>
+                      <button 
+                        onClick={() => setIsTeamModalOpen(true)}
+                        className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-primary' : 'text-slate-500'} hover:opacity-70 transition-all`}
+                      >
+                        Manage Team
+                      </button>
                     </div>
-                    
-                    {unassignedCases.length > 0 ? (
-                      <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2">
-                        {unassignedCases.map(c => (
-                          <div key={c.id} className={`${isDark ? 'bg-white/5' : 'bg-slate-50'} p-3 rounded-xl border ${isDark ? 'border-white/10' : 'border-slate-200'} flex justify-between items-center gap-4`}>
-                            <div className="min-w-0">
-                              <p className={`text-xs font-bold ${textColor} truncate`}>{c.summary}</p>
-                              <p className={`text-[10px] ${subTextColor} uppercase`}>{c.priority}</p>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="max-h-[120px] overflow-y-auto pr-2 space-y-3 mb-6">
+                      {testers.map(tester => (
+                        <div key={tester.id} className="flex justify-between items-center text-sm">
+                          <span className={`${subTextColor} font-medium`}>{tester.name}</span>
+                          <div className={`w-1/2 ${isDark ? 'bg-white/10' : 'bg-slate-100'} h-2 rounded-full overflow-hidden`}>
+                            <div className="bg-blue-500 h-full transition-all" style={{ width: `${Math.min(100, (tester.assignments?.length || 0) * 20)}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className={`border-t ${isDark ? 'border-white/10' : 'border-slate-100'} pt-4`}>
+                      <div className="flex justify-between items-center mb-3">
+                        <h5 className={`text-xs font-bold uppercase tracking-wider ${subTextColor}`}>Pending Pool</h5>
+                        <span className="px-2 py-0.5 bg-primary/20 text-primary text-[10px] font-bold rounded-full">{unassignedCases.length} Cases</span>
+                      </div>
+                      
+                      {unassignedCases.length > 0 ? (
+                        <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2">
+                          {unassignedCases.map(c => (
+                            <div key={c.id} className={`${isDark ? 'bg-white/5' : 'bg-slate-50'} p-3 rounded-xl border ${isDark ? 'border-white/10' : 'border-slate-200'} flex justify-between items-center gap-4`}>
+                              <div className="min-w-0">
+                                <p className={`text-xs font-bold ${textColor} truncate`}>{c.summary}</p>
+                                <p className={`text-[10px] ${subTextColor} uppercase`}>{c.priority}</p>
+                              </div>
+                              <div className="flex gap-2 shrink-0">
+                                <select 
+                                  value={selectedTesterId}
+                                  onChange={(e) => setSelectedTesterId(e.target.value)}
+                                  className={`text-[11px] font-bold px-4 py-2 rounded-xl border cursor-pointer transition-all ${isDark ? 'bg-slate-900 border-white/20 text-white hover:border-primary/50' : 'bg-white border-slate-200 text-slate-900 hover:border-primary/50'} focus:ring-2 focus:ring-primary/20 outline-none min-w-[120px] h-9`}
+                                >
+                                  <option value="">Assign Tester...</option>
+                                  {testers.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                  ))}
+                                </select>
+                                <button 
+                                  onClick={() => handleAssign(c.id)}
+                                  className="h-9 w-9 flex items-center justify-center bg-primary text-white rounded-xl hover:bg-primary/80 transition-all shadow-lg shadow-primary/20"
+                                >
+                                  <Plus size={16} />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex gap-2 shrink-0">
-                              <select 
-                                value={selectedTesterId}
-                                onChange={(e) => setSelectedTesterId(e.target.value)}
-                                className={`text-[11px] font-bold px-4 py-2 rounded-xl border cursor-pointer transition-all ${isDark ? 'bg-slate-900 border-white/20 text-white hover:border-primary/50' : 'bg-white border-slate-200 text-slate-900 hover:border-primary/50'} focus:ring-2 focus:ring-primary/20 outline-none min-w-[120px] h-9`}
-                              >
-                                <option value="">Assign Tester...</option>
-                                {testers.map(t => (
-                                  <option key={t.id} value={t.id}>{t.name}</option>
-                                ))}
-                              </select>
-                              <button 
-                                onClick={() => handleAssign(c.id)}
-                                className="h-9 w-9 flex items-center justify-center bg-primary text-white rounded-xl hover:bg-primary/80 transition-all shadow-lg shadow-primary/20"
-                              >
-                                <Plus size={16} />
-                              </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className={`text-center py-6 border-2 border-dashed ${isDark ? 'border-white/5' : 'border-slate-100'} rounded-2xl`}>
+                          <p className={`text-xs ${subTextColor} italic`}>All work currently assigned</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className={`${cardBg} p-6 rounded-3xl shadow-lg`}>
+                  <h4 className={`font-bold ${textColor} mb-4 flex items-center gap-2`}>
+                    <Bug size={20} className={subTextColor} />
+                    Major Blockers
+                  </h4>
+                  <div className="space-y-3">
+                    {allTestCases.filter(c => c.status === 'BLOCKED' || c.priority === 'CRITICAL' && c.status === 'FAIL').length > 0 ? (
+                      allTestCases
+                        .filter(c => c.status === 'BLOCKED' || (c.priority === 'CRITICAL' && c.status === 'FAIL'))
+                        .slice(0, 5) // Show top 5
+                        .map(blocker => (
+                          <div key={blocker.id} className={`flex items-start gap-3 p-3 ${isDark ? 'bg-red-500/10 border-red-500/20' : 'bg-red-50 border-red-100'} rounded-2xl border animate-in fade-in slide-in-from-right-2 duration-300`}>
+                            <div className={`p-1.5 ${isDark ? 'bg-red-500/20' : 'bg-red-100'} rounded-lg text-red-600`}>
+                              <AlertCircle size={16} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className={`text-sm font-bold ${isDark ? 'text-red-400' : 'text-red-900'} truncate`}>{blocker.summary}</p>
+                              <p className={`text-[10px] ${isDark ? 'text-red-400/70' : 'text-red-600'} uppercase font-bold`}>
+                                {blocker.status === 'BLOCKED' ? 'STATUS: BLOCKED' : `PRIORITY: ${blocker.priority}`}
+                              </p>
                             </div>
                           </div>
-                        ))}
-                      </div>
+                        ))
                     ) : (
-                      <div className={`text-center py-6 border-2 border-dashed ${isDark ? 'border-white/5' : 'border-slate-100'} rounded-2xl`}>
-                        <p className={`text-xs ${subTextColor} italic`}>All work currently assigned</p>
+                      <div className={`p-6 border-2 border-dashed ${isDark ? 'border-white/5' : 'border-slate-100'} rounded-2xl text-center`}>
+                        <p className={`text-xs ${subTextColor} italic`}>No major blockers detected. System healthy.</p>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
-              <div className={`${cardBg} p-6 rounded-3xl shadow-lg`}>
-                <h4 className={`font-bold ${textColor} mb-4 flex items-center gap-2`}>
-                  <Bug size={20} className={subTextColor} />
-                  Major Blockers
-                </h4>
-                <div className="space-y-3">
-                  {allTestCases.filter(c => c.status === 'BLOCKED' || c.priority === 'CRITICAL' && c.status === 'FAIL').length > 0 ? (
-                    allTestCases
-                      .filter(c => c.status === 'BLOCKED' || (c.priority === 'CRITICAL' && c.status === 'FAIL'))
-                      .slice(0, 5) // Show top 5
-                      .map(blocker => (
-                        <div key={blocker.id} className={`flex items-start gap-3 p-3 ${isDark ? 'bg-red-500/10 border-red-500/20' : 'bg-red-50 border-red-100'} rounded-2xl border animate-in fade-in slide-in-from-right-2 duration-300`}>
-                          <div className={`p-1.5 ${isDark ? 'bg-red-500/20' : 'bg-red-100'} rounded-lg text-red-600`}>
-                            <AlertCircle size={16} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className={`text-sm font-bold ${isDark ? 'text-red-400' : 'text-red-900'} truncate`}>{blocker.summary}</p>
-                            <p className={`text-[10px] ${isDark ? 'text-red-400/70' : 'text-red-600'} uppercase font-bold`}>
-                              {blocker.status === 'BLOCKED' ? 'STATUS: BLOCKED' : `PRIORITY: ${blocker.priority}`}
-                            </p>
-                          </div>
+            </div>
+
+            <aside className="space-y-6">
+              <div className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-2xl relative overflow-hidden h-fit">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <Brain size={120} />
+                </div>
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-3 relative z-10 text-white">
+                  <Brain className="text-primary" />
+                  AI Advisor
+                </h3>
+
+                {agentLogs.length > 0 && (
+                  <div className="mb-8 relative z-10 bg-black/40 rounded-2xl p-4 border border-white/10 overflow-hidden group">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary mb-3">
+                      <Terminal size={12} className="animate-pulse" />
+                      Agent Live Status
+                    </div>
+                    <div className="space-y-2">
+                      {agentLogs.map((log, i) => (
+                        <div key={i} className={`text-xs font-mono transition-all duration-500 ${i === agentLogs.length - 1 ? 'text-white' : 'text-white/40'}`}>
+                          <span className="text-primary mr-2">›</span>
+                          {log}
                         </div>
-                      ))
-                  ) : (
-                    <div className={`p-6 border-2 border-dashed ${isDark ? 'border-white/5' : 'border-slate-100'} rounded-2xl text-center`}>
-                      <p className={`text-xs ${subTextColor} italic`}>No major blockers detected. System healthy.</p>
+                      ))}
+                    </div>
+                    <div className="absolute bottom-0 left-0 w-full h-1 bg-primary/20">
+                      <div className="h-full bg-primary animate-progress-indefinite w-1/3" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-5 relative z-10">
+                  {insights.length > 0 ? insights.map((insight, idx) => (
+                    <div key={idx} className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 hover:bg-white/20 transition-all group">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-primary-foreground/60">{insight.type}</span>
+                      </div>
+                      <p className="text-sm font-medium leading-relaxed">
+                        {insight.message}
+                      </p>
+                    </div>
+                  )) : (
+                    <div className="text-slate-400 italic text-sm py-4">Generating daily insights for {selectedProject?.name}...</div>
+                  )}
+                </div>
+                <button 
+                  onClick={handleAnalyze}
+                  className="w-full mt-8 py-4 bg-white/10 border border-white/20 rounded-2xl font-bold text-sm hover:bg-white/20 transition-all text-white"
+                >
+                  Refresh Strategy
+                </button>
+              </div>
+            </aside>
+          </div>
+        ) : (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+              {/* Configuration Sidebar */}
+              <div className="lg:col-span-1 space-y-6">
+                <div className={`${cardBg} p-6 rounded-3xl shadow-xl space-y-6`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Settings size={18} className="text-primary" />
+                    <h3 className={`font-bold ${textColor}`}>Drafting Scope</h3>
+                  </div>
+
+                  {/* Release & Status */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor} mb-2 block`}>Release</label>
+                      <input 
+                        type="text" 
+                        value={labConfig.release}
+                        onChange={(e) => setLabConfig({...labConfig, release: e.target.value})}
+                        placeholder="e.g. R24.4"
+                        className={`w-full p-3 rounded-xl border text-sm ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Channel Selection */}
+                  <div className="space-y-3">
+                    <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor} block`}>Channel</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Retail', 'Call Center'].map(channel => (
+                        <button
+                          key={channel}
+                          onClick={() => {
+                            const newChannels = labConfig.channels.includes(channel)
+                              ? labConfig.channels.filter(c => c !== channel)
+                              : [...labConfig.channels, channel];
+                            setLabConfig({...labConfig, channels: newChannels});
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all ${
+                            labConfig.channels.includes(channel)
+                            ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-105'
+                            : (isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-white border-slate-200 text-slate-600')
+                          }`}
+                        >
+                          {channel}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Account Type Selection */}
+                  <div className="space-y-3">
+                    <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor} block`}>Account Type</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['HBB', 'Mobile'].map(type => (
+                        <button
+                          key={type}
+                          onClick={() => {
+                            const newTypes = labConfig.accountTypes.includes(type)
+                              ? labConfig.accountTypes.filter(t => t !== type)
+                              : [...labConfig.accountTypes, type];
+                            setLabConfig({...labConfig, accountTypes: newTypes});
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all ${
+                            labConfig.accountTypes.includes(type)
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/20 scale-105'
+                            : (isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-white border-slate-200 text-slate-600')
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Journey Type Selection */}
+                  <div className="space-y-3">
+                    <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor} block`}>Journey Type</label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {['New connection', 'Upgrade', 'Downgrade', ...extraJourneys].map(j => (
+                        <button
+                          key={j}
+                          onClick={() => {
+                            const newJourneys = labConfig.journeyTypes.includes(j)
+                              ? labConfig.journeyTypes.filter(jt => jt !== j)
+                              : [...labConfig.journeyTypes, j];
+                            setLabConfig({...labConfig, journeyTypes: newJourneys});
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all flex items-center gap-2 ${
+                            labConfig.journeyTypes.includes(j)
+                            ? 'bg-rose-600 border-rose-600 text-white shadow-lg shadow-rose-600/20 scale-105'
+                            : (isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-white border-slate-200 text-slate-600')
+                          }`}
+                        >
+                          {j}
+                          {extraJourneys.includes(j) && (
+                            <span 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExtraJourneys(prev => prev.filter(ej => ej !== j));
+                                setLabConfig(prev => ({...prev, journeyTypes: prev.journeyTypes.filter(jt => jt !== j)}));
+                              }}
+                              className="hover:scale-125 transition-transform opacity-60 hover:opacity-100"
+                            >
+                              ✕
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Manual Journey Type */}
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={customJourneyType}
+                        onChange={(e) => setCustomJourneyType(e.target.value)}
+                        placeholder="Add custom..."
+                        className={`flex-1 p-2 rounded-lg border text-[11px] ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                      />
+                      <button 
+                        onClick={() => {
+                          const val = customJourneyType.trim();
+                          if (!val || extraJourneys.includes(val) || ['New connection', 'Upgrade', 'Downgrade'].includes(val)) {
+                            setCustomJourneyType('');
+                            return;
+                          }
+                          setExtraJourneys(prev => [...prev, val]);
+                          setLabConfig(prev => ({...prev, journeyTypes: [...prev.journeyTypes, val]}));
+                          setCustomJourneyType('');
+                        }}
+                        className="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-all"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Test Case Metadata */}
+                  <div className="space-y-4 pt-4 border-t border-white/10">
+                    <div>
+                      <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor} mb-2 block`}>Priority</label>
+                      <select 
+                        value={labConfig.priority}
+                        onChange={(e) => setLabConfig({...labConfig, priority: e.target.value})}
+                        className={`w-full p-3 rounded-xl border text-sm ${isDark ? 'bg-slate-800 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                      >
+                        <option value="HIGH">HIGH</option>
+                        <option value="MEDIUM">MEDIUM</option>
+                        <option value="LOW">LOW</option>
+                      </select>
+                    </div>
+
+                    {/* Matrix Preview */}
+                    {(labConfig.channels.length > 1 || labConfig.accountTypes.length > 1 || labConfig.journeyTypes.length > 1) && (
+                      <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl animate-in fade-in zoom-in duration-300">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Activity size={14} className="text-primary" />
+                          <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Combinatorial Matrix</span>
+                        </div>
+                        <p className={`text-[11px] leading-relaxed ${subTextColor}`}>
+                          AI will draft scenarios for every combination:
+                          <br />
+                          <strong className="text-primary">
+                            {Math.max(1, labConfig.channels.length)} Channels × {Math.max(1, labConfig.accountTypes.length)} Account Types × {Math.max(1, labConfig.journeyTypes.length)} Journeys
+                            = {Math.max(1, labConfig.channels.length) * Math.max(1, labConfig.accountTypes.length) * Math.max(1, labConfig.journeyTypes.length)} Distinct Scope Blends
+                          </strong>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Requirements Area */}
+              <div className="lg:col-span-3 space-y-8">
+                <div className={`${cardBg} p-8 rounded-3xl shadow-xl relative overflow-hidden h-full flex flex-col`}>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="p-4 bg-primary/10 rounded-2xl text-primary">
+                      <Brain size={32} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h2 className={`text-2xl font-black ${textColor}`}>AI Scenario Drafting Lab</h2>
+                        {selectedProject && (
+                          <span className="px-2 py-0.5 bg-primary/20 text-primary text-[10px] font-bold rounded-full border border-primary/20">
+                            Target: {selectedProject.name}
+                          </span>
+                        )}
+                      </div>
+                      <p className={subTextColor}>Describe your feature or paste requirements to generate structured test plans.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 flex-1 flex flex-col">
+                    <textarea 
+                      value={labRequirements}
+                      onChange={(e) => setLabRequirements(e.target.value)}
+                      placeholder="Enter feature description, user stories, or technical requirements here..."
+                      className={`w-full flex-1 p-6 rounded-2xl border transition-all ${
+                        isDark ? 'bg-white/5 border-white/10 text-white focus:border-primary/50' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-primary'
+                      } resize-none outline-none text-sm font-medium leading-relaxed min-h-[300px]`}
+                    />
+                    
+                    <div className="flex justify-between items-center">
+                      <p className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>
+                        {labRequirements.length} characters entered
+                      </p>
+                    <div className="flex flex-col items-end gap-2">
+                        {(!labRequirements.trim() || labConfig.channels.length === 0 || labConfig.accountTypes.length === 0 || labConfig.journeyTypes.length === 0) && (
+                          <span className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-amber-500/70' : 'text-amber-600/70'} animate-pulse`}>
+                            {!labRequirements.trim() ? 'Draft your requirements first' : 'Select at least one option for Channel, Account, and Journey'}
+                          </span>
+                        )}
+                        <button 
+                          onClick={handleGenerateScenarios}
+                          disabled={isGenerating || !labRequirements.trim() || labConfig.channels.length === 0 || labConfig.accountTypes.length === 0 || labConfig.journeyTypes.length === 0}
+                          className={`relative overflow-hidden flex items-center gap-3 px-8 py-4 bg-primary text-white rounded-2xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary/30 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 ${!isGenerating && !isGenerating && labRequirements.trim() && labConfig.channels.length > 0 && labConfig.accountTypes.length > 0 && labConfig.journeyTypes.length > 0 && 'animate-ai-pulse'}`}
+                        >
+                          {isGenerating && <div className="absolute inset-0 shimmer-bg opacity-30" />}
+                          {isGenerating ? (
+                            <>
+                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              Analyzing Requirements...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles size={18} className="animate-pulse" />
+                              Generate Test Plan
+                            </>
+                          )}
+                        </button>
+                    </div>
+                    </div>
+                  </div>
+
+                  {/* Background Decoration */}
+                  <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+                    <Brain size={300} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {(isGenerating || agentLogs.length > 0) && (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${isGenerating ? 'bg-primary/20 animate-pulse' : 'bg-slate-800'}`}>
+                      <Terminal size={18} className="text-primary" />
+                    </div>
+                    <h4 className="text-sm font-bold text-white uppercase tracking-widest">Agent Live Status</h4>
+                  </div>
+                  {isGenerating && (
+                    <div className="flex gap-1">
+                      <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
+                      <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '400ms' }} />
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
-          </div>
+                
+                <div className="space-y-2 font-mono">
+                  {agentLogs.slice(-4).map((log, i) => (
+                    <div key={i} className={`text-xs flex gap-3 transition-opacity duration-300 ${i === agentLogs.slice(-4).length - 1 ? 'text-white' : 'text-slate-500'}`}>
+                      <span className="text-primary opacity-50 select-none">[{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span>
+                      <span className="flex-1">{log}</span>
+                    </div>
+                  ))}
+                </div>
 
-          <aside className="space-y-6">
-            <div className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-2xl relative overflow-hidden h-fit">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Brain size={120} />
-              </div>
-              <h3 className="text-xl font-bold mb-6 flex items-center gap-3 relative z-10 text-white">
-                <Brain className="text-primary" />
-                AI Advisor
-              </h3>
-
-              {agentLogs.length > 0 && (
-                <div className="mb-8 relative z-10 bg-black/40 rounded-2xl p-4 border border-white/10 overflow-hidden group">
-                  <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary mb-3">
-                    <Terminal size={12} className="animate-pulse" />
-                    Agent Live Status
-                  </div>
-                  <div className="space-y-2">
-                    {agentLogs.map((log, i) => (
-                      <div key={i} className={`text-xs font-mono transition-all duration-500 ${i === agentLogs.length - 1 ? 'text-white' : 'text-white/40'}`}>
-                        <span className="text-primary mr-2">›</span>
-                        {log}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="absolute bottom-0 left-0 w-full h-1 bg-primary/20">
+                {isGenerating && (
+                  <div className="absolute bottom-0 left-0 w-full h-1 bg-primary/10 overflow-hidden">
                     <div className="h-full bg-primary animate-progress-indefinite w-1/3" />
                   </div>
-                </div>
-              )}
-
-              <div className="space-y-5 relative z-10">
-                {insights.length > 0 ? insights.map((insight, idx) => (
-                  <div key={idx} className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 hover:bg-white/20 transition-all group">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-primary-foreground/60">{insight.type}</span>
-                    </div>
-                    <p className="text-sm font-medium leading-relaxed">
-                      {insight.message}
-                    </p>
-                  </div>
-                )) : (
-                  <div className="text-slate-400 italic text-sm py-4">Generating daily insights for {selectedProject?.name}...</div>
                 )}
               </div>
-              <button 
-                onClick={handleAnalyze}
-                className="w-full mt-8 py-4 bg-white/10 border border-white/20 rounded-2xl font-bold text-sm hover:bg-white/20 transition-all text-white"
-              >
-                Refresh Strategy
-              </button>
-            </div>
-          </aside>
-        </div>
+            )}
+
+            {generatedScenarios.length > 0 && (
+              <div id="lab-results-applet" className="space-y-8 pt-12 border-t border-white/5 animate-in fade-in slide-in-from-bottom-12 duration-1000">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
+                        <CheckCircle2 size={24} />
+                      </div>
+                      <h3 className={`text-2xl font-black ${textColor}`}>Drafting Results</h3>
+                    </div>
+                    <p className={subTextColor}>We've prepared {generatedScenarios.length} scenarios covering your selected scope matrix.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-4">
+                    <button 
+                      onClick={handleExportLabExcel}
+                      className={`flex items-center gap-2 px-6 py-3 ${isDark ? 'bg-white/10 text-white border-white/20' : 'bg-white text-slate-700 border-slate-200'} border rounded-2xl font-bold hover:scale-105 transition-all shadow-lg`}
+                    >
+                      <Upload size={18} className="rotate-180" />
+                      Export to Excel
+                    </button>
+                    <button 
+                      onClick={handleCommitScenarios}
+                      className="flex items-center gap-2 px-7 py-3 bg-emerald-600 text-white rounded-2xl font-extrabold hover:bg-emerald-500 hover:scale-105 transition-all shadow-xl shadow-emerald-600/30"
+                    >
+                      <CheckCircle2 size={18} />
+                      Commit to Project
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {generatedScenarios.map((s, i) => {
+                    const isRetail = s.summary?.toLowerCase().includes('retail') || s.module?.toLowerCase().includes('retail');
+                    const isCallCenter = s.summary?.toLowerCase().includes('call center') || s.module?.toLowerCase().includes('call center');
+                    const isHBB = s.summary?.toLowerCase().includes('hbb') || s.module?.toLowerCase().includes('hbb');
+                    const isMobile = s.summary?.toLowerCase().includes('mobile') || s.module?.toLowerCase().includes('mobile');
+
+                    return (
+                      <div key={i} className={`group relative ${cardBg} p-8 rounded-[2rem] shadow-xl hover:shadow-2xl transition-all border overflow-hidden animate-in fade-in zoom-in duration-500`} style={{ animationDelay: `${i * 100}ms` }}>
+                         <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.08] transition-all rotate-12 group-hover:rotate-0">
+                           {isHBB ? <Home size={120} /> : isMobile ? <Smartphone size={120} /> : <Layers size={120} />}
+                         </div>
+
+                         <div className="relative z-10 flex flex-col h-full">
+                            <div className="flex justify-between items-start mb-6">
+                              <div className="flex gap-2">
+                                {isRetail && <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg" title="Retail"><ShoppingBag size={14} /></div>}
+                                {isCallCenter && <div className="p-2 bg-purple-500/10 text-purple-500 rounded-lg" title="Call Center"><Headphones size={14} /></div>}
+                                {isHBB && <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg" title="HBB"><Home size={14} /></div>}
+                                {isMobile && <div className="p-2 bg-rose-500/10 text-rose-500 rounded-lg" title="Mobile"><Smartphone size={14} /></div>}
+                              </div>
+                              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                <button 
+                                  onClick={() => openEditScenario(i)}
+                                  className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                                  title="Refine Scenario"
+                                >
+                                  <Settings size={16} />
+                                </button>
+                                <button 
+                                  onClick={() => handleDiscardScenario(i)}
+                                  className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                                  title="Discard Journey"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="mb-4">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider mb-2 inline-block ${
+                                s.priority === 'HIGH' ? 'bg-rose-500/20 text-rose-500' : 
+                                s.priority === 'MEDIUM' ? 'bg-amber-500/20 text-amber-500' : 'bg-emerald-500/20 text-emerald-500'
+                              }`}>
+                                {s.priority}
+                              </span>
+                              <h4 className={`text-lg font-bold leading-tight ${textColor} mb-2`}>{s.summary}</h4>
+                              <p className={`text-xs font-semibold ${isDark ? 'text-primary/70' : 'text-primary'}`}>{s.module}</p>
+                            </div>
+
+                            <div className="flex-1 space-y-4 mb-6">
+                              <div>
+                                <h5 className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor} mb-2 flex items-center gap-2`}>
+                                  <Activity size={12} /> Test Steps
+                                </h5>
+                                <div className={`text-xs leading-relaxed space-y-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                  {s.steps?.split('\n').map((step, idx) => (
+                                    <div key={idx} className="flex gap-2">
+                                      <span className="text-primary font-bold opacity-50">{idx + 1}.</span>
+                                      <span className="flex-1">{step.replace(/^\d+\.\s*/, '')}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <h5 className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor} mb-2 flex items-center gap-2`}>
+                                  <CheckCircle2 size={12} /> Expected Result
+                                </h5>
+                                <p className={`text-xs leading-relaxed ${isDark ? 'text-emerald-400/80' : 'text-emerald-600'}`}>{s.expectedResult}</p>
+                              </div>
+                            </div>
+                         </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )
       )}
       
+      {/* New Project Modal */}
+      {isCreateProjectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className={`${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'} border rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200`}>
+            <div className="p-6 border-b border-white/10 flex justify-between items-center">
+              <h3 className={`text-lg font-bold ${textColor}`}>New Project</h3>
+              <button onClick={() => setIsCreateProjectModalOpen(false)} className={subTextColor}>×</button>
+            </div>
+            <form onSubmit={submitCreateProject} className="p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Project Name</label>
+                <input 
+                  type="text" 
+                  autoFocus
+                  placeholder="e.g. Q2 Quality Assurance"
+                  className={`w-full p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-sm focus:border-primary outline-none transition-all`}
+                  value={newProjName}
+                  onChange={(e) => setNewProjName(e.target.value)}
+                  required
+                />
+              </div>
+              <button 
+                type="submit" 
+                className="w-full py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/80 transition-all shadow-lg shadow-primary/20"
+              >
+                Create Project
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Team Management Modal */}
       {isTeamModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -1098,6 +1694,112 @@ const App = () => {
                 Close Tracker
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scenario Edit Modal */}
+      {isEditScenarioModalOpen && editingScenarioData && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+          <div className={`${isDark ? 'bg-slate-950 border-white/10' : 'bg-white border-slate-200'} border rounded-[2.5rem] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300`}>
+            <div className="p-8 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-primary/5 to-transparent">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                  <Settings size={20} />
+                </div>
+                <div>
+                  <h3 className={`text-xl font-black ${textColor}`}>Refine AI Scenario</h3>
+                  <p className={`text-xs ${subTextColor}`}>Correct manual errors or refine steps for better clarity.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsEditScenarioModalOpen(false)} 
+                className={`${isDark ? 'bg-white/5 text-white/40 border-white/10 hover:text-white' : 'bg-slate-100 text-slate-400 border-slate-200 hover:text-slate-900'} p-2 rounded-xl border transition-all`}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveEditedScenario} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Summary / Name</label>
+                  <input 
+                    type="text" 
+                    className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-sm font-bold focus:border-primary outline-none`}
+                    value={editingScenarioData.summary}
+                    onChange={(e) => setEditingScenarioData({...editingScenarioData, summary: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Module / Area</label>
+                  <input 
+                    type="text" 
+                    className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-sm focus:border-primary outline-none`}
+                    value={editingScenarioData.module}
+                    onChange={(e) => setEditingScenarioData({...editingScenarioData, module: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Scenario Priority</label>
+                <div className="flex gap-2">
+                  {['HIGH', 'MEDIUM', 'LOW'].map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setEditingScenarioData({...editingScenarioData, priority: p})}
+                      className={`flex-1 py-3 rounded-xl border text-[11px] font-extrabold transition-all ${
+                        editingScenarioData.priority === p
+                        ? (p === 'HIGH' ? 'bg-rose-500 border-rose-500 text-white shadow-lg shadow-rose-500/20' : p === 'MEDIUM' ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20')
+                        : (isDark ? 'bg-white/5 border-white/10 text-slate-500' : 'bg-white border-slate-200 text-slate-400')
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Step-by-Step Instructions</label>
+                <textarea 
+                  className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs leading-relaxed min-h-[150px] focus:border-primary outline-none resize-none font-medium`}
+                  value={editingScenarioData.steps}
+                  onChange={(e) => setEditingScenarioData({...editingScenarioData, steps: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Expected Outcome</label>
+                <textarea 
+                  className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs leading-relaxed min-h-[80px] focus:border-primary outline-none resize-none font-medium`}
+                  value={editingScenarioData.expectedResult}
+                  onChange={(e) => setEditingScenarioData({...editingScenarioData, expectedResult: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button 
+                  type="button"
+                  onClick={() => setIsEditScenarioModalOpen(false)}
+                  className={`flex-1 py-4 font-bold border rounded-2xl transition-all ${isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 py-4 bg-primary text-white font-black rounded-2xl hover:bg-primary/80 transition-all shadow-xl shadow-primary/20"
+                >
+                  Save Refinements
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

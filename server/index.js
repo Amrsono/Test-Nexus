@@ -30,6 +30,7 @@ const assignmentRoutes = require('./routes/assignments');
 const insightRoutes = require('./routes/insights');
 const userRoutes = require('./routes/users');
 const reportRoutes = require('./routes/reports');
+const generatorRoutes = require('./routes/generator');
 
 app.use('/api/projects', projectRoutes);
 app.use('/api/test-cases', testCaseRoutes);
@@ -38,6 +39,7 @@ app.use('/api/assignments', assignmentRoutes);
 app.use('/api/insights', insightRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/generator', generatorRoutes);
 
 // Export app for Vercel
 module.exports = app;

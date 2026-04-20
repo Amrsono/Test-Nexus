@@ -135,4 +135,44 @@ router.get('/burndown', async (req, res) => {
   }
 });
 
+// Bulk create test cases (used by AI Scenario Lab)
+router.post('/bulk', async (req, res) => {
+  const { projectId, suiteName, testCases } = req.body;
+  if (!projectId || !testCases || !Array.isArray(testCases)) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create or find the test suite
+      const suite = await tx.testSuite.create({
+        data: {
+          name: suiteName,
+          projectId: projectId
+        }
+      });
+
+      // 2. Create all test cases
+      const createdCases = await tx.testCase.createMany({
+        data: testCases.map(tc => ({
+          summary: tc.summary,
+          steps: tc.steps,
+          expectedResult: tc.expectedResult,
+          priority: tc.priority || 'MEDIUM',
+          module: tc.module || 'General',
+          suiteId: suite.id,
+          status: 'PENDING'
+        }))
+      });
+
+      return { suite, count: createdCases.count };
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Bulk creation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
