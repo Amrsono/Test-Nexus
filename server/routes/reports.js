@@ -263,9 +263,11 @@ router.get('/project/:id/ppt', async (req, res) => {
     
     if (pmInsights.length > 0) {
       pmInsights.forEach((insight, idx) => {
-        const yOffset = 3.4 + (idx * 0.6);
-        s6.addShape(pres.ShapeType.ellipse, { x: 0.5, y: yOffset + 0.1, w: 0.1, h: 0.1, fill: { color: "6366F1" } });
-        s6.addText(insight.message, { x: 0.7, y: yOffset, w: 8.5, fontSize: 12, color: "FFFFFF", fontFace: "Arial" });
+        const yOffset = 3.0 + (idx * 0.9); // Increased gap to 0.9 and started higher
+        s6.addShape(pres.ShapeType.ellipse, { x: 0.5, y: yOffset + 0.1, w: 0.08, h: 0.08, fill: { color: "6366F1" } });
+        s6.addText(insight.message, { 
+          x: 0.7, y: yOffset, w: 8.5, h: 0.8, fontSize: 11, color: "FFFFFF", fontFace: "Arial", valign: 'top' 
+        });
       });
     } else {
       s6.addText("Maintain current velocity to ensure stable release transition.", { x: 0.7, y: 3.4, w: 8.5, fontSize: 12, color: "94A3B8", fontFace: "Arial", italic: true });
@@ -279,20 +281,20 @@ router.get('/project/:id/ppt', async (req, res) => {
     
     if (project.insights.length > 0) {
       project.insights.forEach((insight, idx) => {
-        const yPos = 1.2 + (idx * 1.0); // Increased gap from 0.8 to 1.0
+        const yPos = 1.2 + (idx * 1.5); // Increased gap significantly to 1.5 inches
         const color = insight.type === 'RISK' ? 'EF4444' : insight.type === 'VELOCITY' ? 'F59E0B' : '6366F1';
         
         // Visual indicator bar
-        s7.addShape(pres.ShapeType.rect, { x: 0.5, y: yPos, w: 0.06, h: 0.7, fill: { color: color } });
+        s7.addShape(pres.ShapeType.rect, { x: 0.5, y: yPos, w: 0.06, h: 1.0, fill: { color: color } });
         
-        // Category Label (smaller, capitalized)
+        // Category Label
         s7.addText(insight.type.toUpperCase(), { 
           x: 0.7, y: yPos, fontSize: 9, bold: true, color: color, fontFace: "Arial", charSpacing: 1 
         });
         
-        // The actual insight message (positioned lower to avoid overlap)
+        // The actual insight message
         s7.addText(insight.message, { 
-          x: 0.7, y: yPos + 0.25, w: 8.5, h: 0.6, fontSize: 13, color: "FFFFFF", fontFace: "Arial", valign: 'top' 
+          x: 0.7, y: yPos + 0.25, w: 8.5, h: 1.1, fontSize: 12, color: "FFFFFF", fontFace: "Arial", valign: 'top' 
         });
       });
     } else {
