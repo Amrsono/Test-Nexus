@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-  LineChart, Line, AreaChart, Area 
+  LineChart, Line, AreaChart, Area, PieChart, Pie, Cell 
 } from 'recharts';
 import { 
   Activity, CheckCircle2, AlertCircle, Clock, 
@@ -58,6 +58,7 @@ const App = () => {
   const [generatedScenarios, setGeneratedScenarios] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasLoadedDrafts, setHasLoadedDrafts] = useState(false);
+  const [newProjDates, setNewProjDates] = useState({ start: new Date().toISOString().split('T')[0], goLive: '' });
 
   const [localTheme, setLocalTheme] = useState('#f8fafc');
 
@@ -223,7 +224,12 @@ const App = () => {
     try {
       setLoading(true);
       setIsCreateProjectModalOpen(false);
-      const res = await axios.post(`${API_BASE}/projects`, { name: newProjName.trim(), themeColor: '#f8fafc' });
+      const res = await axios.post(`${API_BASE}/projects`, { 
+        name: newProjName.trim(), 
+        themeColor: '#f8fafc',
+        startDate: newProjDates.start,
+        goLiveDate: newProjDates.goLive || null
+      });
       await fetchProjects();
       setSelectedProjectId(res.data.id);
     } catch (err) {
@@ -857,11 +863,12 @@ const App = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               {/* Top Hero: Executive Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <MetricCard label="Total Cases" value={stats.total} icon={<Activity className="text-blue-500" />} change="+12%" isDark={isDark} />
-                <MetricCard label="Passed" value={stats.passed} icon={<CheckCircle2 className="text-emerald-500" />} change="78%" trend="up" isDark={isDark} />
-                <MetricCard label="Blocked" value={stats.blocked} icon={<AlertCircle className="text-amber-500" />} change="4 cases" trend="down" isDark={isDark} />
-                <MetricCard label="Health Status" value={stats.total > 0 ? "Active" : "New"} icon={<TrendingDown className="text-indigo-500" />} status="LIVE" isDark={isDark} />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                <MetricCard label="Total Cases" value={stats.total} icon={<Activity className="text-blue-500" />} isDark={isDark} />
+                <MetricCard label="Passed" value={stats.passed} icon={<CheckCircle2 className="text-emerald-500" />} isDark={isDark} change={`${Math.round((stats.passed / (stats.total || 1)) * 100)}%`} trend="up" />
+                <MetricCard label="Failed" value={stats.failed} icon={<Bug className="text-rose-500" />} isDark={isDark} change={`${Math.round((stats.failed / (stats.total || 1)) * 100)}%`} trend="down" />
+                <MetricCard label="Blocked" value={stats.blocked} icon={<AlertCircle className="text-amber-500" />} isDark={isDark} change={`${Math.round((stats.blocked / (stats.total || 1)) * 100)}%`} />
+                <MetricCard label="Pending" value={stats.pending} icon={<Clock className="text-slate-400" />} isDark={isDark} />
               </div>
 
               <div className={`${cardBg} p-8 rounded-3xl shadow-xl`}>
@@ -870,26 +877,80 @@ const App = () => {
                     <h3 className={`text-xl font-bold ${textColor}`}>Execution Burndown</h3>
                     <p className={`text-sm ${subTextColor}`}>Actual vs. Ideal Progress</p>
                   </div>
-                </div>
-                <div className="h-[350px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={burndownData}>
-                      <defs>
-                        <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} minTickGap={60} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                  <div className="flex items-center gap-6">
+                    <div className="text-right">
+                      <p className={`text-[10px] font-black uppercase tracking-widest ${subTextColor}`}>Launch Readiness</p>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-2xl font-black ${stats.passed / (stats.total || 1) > 0.8 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          {Math.round((stats.passed / (stats.total || 1)) * 100)}%
+                        </span>
+                        <ArrowUpRight size={20} className="text-emerald-500" />
+                      </div>
+                    </div>
+                    <div className="w-32 h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary transition-all duration-1000" 
+                        style={{ width: `${(stats.passed / (stats.total || 1)) * 100}%` }}
                       />
-                      <Area type="monotone" dataKey="actual" stroke="#2563eb" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" />
-                      <Line type="monotone" dataKey="ideal" stroke="#e2e8f0" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+                <div className="h-[350px] w-full grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={burndownData}>
+                        <defs>
+                          <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
+                            <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "#334155" : "#f1f5f9"} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} dy={10} minTickGap={60} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
+                        <Tooltip 
+                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', backgroundColor: isDark ? '#0f172a' : '#fff', color: isDark ? '#fff' : '#000' }}
+                        />
+                        <Area type="monotone" dataKey="actual" stroke="#2563eb" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" />
+                        <Line type="monotone" dataKey="ideal" stroke="#e2e8f0" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex flex-col justify-center">
+                    <h4 className={`text-xs font-bold uppercase tracking-widest ${subTextColor} mb-4 text-center`}>Status Distribution</h4>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'Passed', value: stats.passed, fill: '#10B981' },
+                              { name: 'Failed', value: stats.failed, fill: '#EF4444' },
+                              { name: 'Blocked', value: stats.blocked, fill: '#F59E0B' },
+                              { name: 'Pending', value: stats.pending, fill: '#64748B' }
+                            ]}
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            <Cell key="cell-0" fill="#10B981" />
+                            <Cell key="cell-1" fill="#EF4444" />
+                            <Cell key="cell-2" fill="#F59E0B" />
+                            <Cell key="cell-3" fill="#64748B" />
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4 flex flex-wrap justify-center gap-4">
+                      {['Passed', 'Failed', 'Blocked', 'Pending'].map((s, i) => (
+                        <div key={s} className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: ['#10B981', '#EF4444', '#F59E0B', '#64748B'][i] }} />
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1500,6 +1561,28 @@ const App = () => {
                   required
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Start Date</label>
+                  <input 
+                    type="date"
+                    className={`w-full p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-sm focus:border-primary outline-none transition-all`}
+                    value={newProjDates.start}
+                    onChange={(e) => setNewProjDates({...newProjDates, start: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Go-Live Date</label>
+                  <input 
+                    type="date"
+                    className={`w-full p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-sm focus:border-primary outline-none transition-all`}
+                    value={newProjDates.goLive}
+                    onChange={(e) => setNewProjDates({...newProjDates, goLive: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
               <button 
                 type="submit" 
                 className="w-full py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/80 transition-all shadow-lg shadow-primary/20"
@@ -1864,6 +1947,18 @@ const App = () => {
                   <span className="text-emerald-500 text-[10px] uppercase font-bold">Passed</span>
                   <span className="text-emerald-400 text-xl font-black">
                     {allTestCases.filter(c => c.status === 'PASS').length}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-rose-500 text-[10px] uppercase font-bold">Failed</span>
+                  <span className="text-rose-400 text-xl font-black">
+                    {allTestCases.filter(c => c.status === 'FAIL').length}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-amber-500 text-[10px] uppercase font-bold">Blocked</span>
+                  <span className="text-amber-400 text-xl font-black">
+                    {allTestCases.filter(c => c.status === 'BLOCKED').length}
                   </span>
                 </div>
               </div>
