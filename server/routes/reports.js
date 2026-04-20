@@ -258,19 +258,19 @@ router.get('/project/:id/ppt', async (req, res) => {
     s6.addText(`Days until Go-Live: ${diffDays > 0 ? diffDays : 'OVERDUE'}`, { x: 4.0, y: 1.8, fontSize: 12, color: "94A3B8", fontFace: "Arial" });
 
     // PM Directives (AI Suggestions)
-    s6.addText("MANAGERIAL DIRECTIVES", { x: 0.5, y: 3.0, fontSize: 16, bold: true, color: "6366F1", fontFace: "Arial" });
+    s6.addText("MANAGERIAL DIRECTIVES", { x: 0.5, y: 3.1, fontSize: 16, bold: true, color: "6366F1", fontFace: "Arial" });
     const pmInsights = project.insights.filter(i => i.type === 'ADVICE' || i.type === 'VELOCITY').slice(0, 3);
     
     if (pmInsights.length > 0) {
       pmInsights.forEach((insight, idx) => {
-        const yOffset = 3.5 + (idx * 0.9); // Started at 3.5 instead of 3.0 to avoid header overlap
-        s6.addShape(pres.ShapeType.ellipse, { x: 0.5, y: yOffset + 0.1, w: 0.08, h: 0.08, fill: { color: "6366F1" } });
+        const yOffset = 3.5 + (idx * 0.6); // Reduced gap to 0.6 and started at 3.5
+        s6.addShape(pres.ShapeType.ellipse, { x: 0.5, y: yOffset + 0.1, w: 0.06, h: 0.06, fill: { color: "6366F1" } });
         s6.addText(insight.message, { 
-          x: 0.7, y: yOffset, w: 8.5, h: 0.8, fontSize: 11, color: "FFFFFF", fontFace: "Arial", valign: 'top' 
+          x: 0.7, y: yOffset, w: 8.5, h: 0.5, fontSize: 10, color: "FFFFFF", fontFace: "Arial", valign: 'top' 
         });
       });
     } else {
-      s6.addText("Maintain current velocity to ensure stable release transition.", { x: 0.7, y: 3.4, w: 8.5, fontSize: 12, color: "94A3B8", fontFace: "Arial", italic: true });
+      s6.addText("Maintain current velocity to ensure stable release transition.", { x: 0.7, y: 3.5, w: 8.5, fontSize: 11, color: "94A3B8", fontFace: "Arial", italic: true });
     }
 
     // 7. AI Risk Analysis
@@ -281,20 +281,20 @@ router.get('/project/:id/ppt', async (req, res) => {
     
     if (project.insights.length > 0) {
       project.insights.forEach((insight, idx) => {
-        const yPos = 1.2 + (idx * 1.5); // Increased gap significantly to 1.5 inches
+        const yPos = 1.1 + (idx * 0.85); // Reduced gap to 0.85 to fit up to 5 items on 5.625" height
         const color = insight.type === 'RISK' ? 'EF4444' : insight.type === 'VELOCITY' ? 'F59E0B' : '6366F1';
         
         // Visual indicator bar
-        s7.addShape(pres.ShapeType.rect, { x: 0.5, y: yPos, w: 0.06, h: 1.0, fill: { color: color } });
+        s7.addShape(pres.ShapeType.rect, { x: 0.5, y: yPos, w: 0.06, h: 0.6, fill: { color: color } });
         
         // Category Label
         s7.addText(insight.type.toUpperCase(), { 
-          x: 0.7, y: yPos, fontSize: 9, bold: true, color: color, fontFace: "Arial", charSpacing: 1 
+          x: 0.7, y: yPos, fontSize: 8, bold: true, color: color, fontFace: "Arial", charSpacing: 1 
         });
         
         // The actual insight message
         s7.addText(insight.message, { 
-          x: 0.7, y: yPos + 0.25, w: 8.5, h: 1.1, fontSize: 12, color: "FFFFFF", fontFace: "Arial", valign: 'top' 
+          x: 0.7, y: yPos + 0.2, w: 8.8, h: 0.6, fontSize: 11, color: "FFFFFF", fontFace: "Arial", valign: 'top' 
         });
       });
     } else {
