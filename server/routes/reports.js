@@ -263,7 +263,7 @@ router.get('/project/:id/ppt', async (req, res) => {
     
     if (pmInsights.length > 0) {
       pmInsights.forEach((insight, idx) => {
-        const yOffset = 3.0 + (idx * 0.9); // Increased gap to 0.9 and started higher
+        const yOffset = 3.5 + (idx * 0.9); // Started at 3.5 instead of 3.0 to avoid header overlap
         s6.addShape(pres.ShapeType.ellipse, { x: 0.5, y: yOffset + 0.1, w: 0.08, h: 0.08, fill: { color: "6366F1" } });
         s6.addText(insight.message, { 
           x: 0.7, y: yOffset, w: 8.5, h: 0.8, fontSize: 11, color: "FFFFFF", fontFace: "Arial", valign: 'top' 
