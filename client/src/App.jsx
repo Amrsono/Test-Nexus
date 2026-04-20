@@ -136,7 +136,9 @@ const App = () => {
   const clearDrafts = () => {
     if (window.confirm('Are you sure you want to discard all current drafts?')) {
       setGeneratedScenarios([]);
+      setLabRequirements('');
       localStorage.removeItem('nexus_drafts');
+      localStorage.removeItem('nexus_lab_reqs');
     }
   };
 
@@ -612,7 +614,7 @@ const App = () => {
 
   const handleCommitScenarios = async () => {
     if (!selectedProjectId || generatedScenarios.length === 0) return;
-    if (!window.confirm(`Save ${generatedScenarios.length} scenarios to ${selectedProject.name}?`)) return;
+    if (!window.confirm(`Save ${generatedScenarios.length} scenarios to ${selectedProject?.name || 'the project'}?`)) return;
 
     try {
       setLoading(true);
@@ -627,9 +629,6 @@ const App = () => {
       });
 
       alert('Scenarios saved to project!');
-      setGeneratedScenarios([]);
-      setLabRequirements('');
-      setCurrentView('dashboard');
       fetchStats();
       fetchAllTestCases();
     } catch (err) {
@@ -853,7 +852,8 @@ const App = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
       ) : (
-        currentView === 'dashboard' ? (
+        <>
+          {currentView === 'dashboard' ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               {/* Top Hero: Executive Summary */}
@@ -1475,9 +1475,9 @@ const App = () => {
                 </div>
               </div>
             )}
-          </div>
-        )
-      )}
+            </div>
+          )}
+
       
       {/* New Project Modal */}
       {isCreateProjectModalOpen && (
@@ -1652,6 +1652,12 @@ const App = () => {
           </div>
         </div>
       )}
+    </>
+  )}
+
+
+
+
       {/* Global Execution Tracker Modal */}
       {isTrackerOpen && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-12">
@@ -1676,118 +1682,100 @@ const App = () => {
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-12">
-              {Object.entries(
-                allTestCases.reduce((acc, c) => {
-                  const mod = c.module || 'Uncategorized';
-                  if (!acc[mod]) acc[mod] = [];
-                  acc[mod].push(c);
-                  return acc;
-                }, {})
-              ).map(([module, cases]) => (
-                <div key={module} className="space-y-6">
-                  <div className="flex items-center gap-3">
-                    <div className="h-px flex-1 bg-slate-800" />
-                    <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-400 whitespace-nowrap bg-indigo-400/10 px-4 py-1.5 rounded-full border border-indigo-400/20">
-                      {module}
-                    </h3>
-                    <div className="h-px flex-1 bg-slate-800" />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3">
-                    {cases.map(tc => {
-                      const assignee = tc.assignments?.[0]?.tester;
-                      return (
-                        <div 
-                          key={tc.id} 
-                          className="bg-slate-800/40 border border-slate-800 p-5 rounded-2xl hover:border-slate-700 transition-all group flex flex-col md:flex-row md:items-center gap-6"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 mb-1">
-                              <span className="text-[10px] font-black text-slate-500 tracking-tighter uppercase whitespace-nowrap">
-                                ID: {tc.externalId || 'N/A'}
-                              </span>
-                              <h4 className="text-white font-semibold truncate text-sm">
-                                {tc.summary}
-                              </h4>
-                            </div>
-                            <p className="text-[10px] text-slate-500 truncate uppercase tracking-widest mb-4">
-                              Priority: {tc.priority}
-                            </p>
-
-                            {/* Manual Validation Checkpoints Grid */}
-                            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-slate-900/50 rounded-xl border border-slate-800">
-                              {[
-                                { field: 'checkUi', label: 'UI Valid' },
-                                { field: 'checkOrderBuild', label: 'Order Build' },
-                                { field: 'checkOrderCompletion', label: 'Completion' },
-                                { field: 'checkPcsMcpr', label: 'PCS & MCPR' }
-                              ].map(val => (
-                                <button
-                                  key={val.field}
-                                  onClick={() => updateCaseValidation(tc.id, val.field, !tc[val.field])}
-                                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all text-left ${
-                                    tc[val.field] 
-                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
-                                    : 'bg-slate-800/50 border-slate-700/50 text-slate-500 hover:border-slate-600'
-                                  }`}
-                                >
-                                  <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-all ${
-                                    tc[val.field] ? 'bg-emerald-500 border-emerald-500' : 'bg-transparent border-slate-600'
-                                  }`}>
-                                    {tc[val.field] && <CheckCircle2 size={10} className="text-white" />}
-                                  </div>
-                                  <span className="text-[9px] font-black uppercase tracking-tighter">{val.label}</span>
-                                </button>
-                              ))}
-                            </div>
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              <div className="grid grid-cols-1 gap-4">
+                {allTestCases.length > 0 ? (
+                  allTestCases.map(tc => {
+                    const assignee = tc.assignments?.[0]?.tester;
+                    return (
+                      <div 
+                        key={tc.id} 
+                        className="bg-slate-800/40 border border-slate-800 p-5 rounded-2xl hover:border-slate-700 transition-all group flex flex-col md:flex-row md:items-center gap-6"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className="text-[10px] font-black text-slate-500 tracking-tighter uppercase whitespace-nowrap">
+                              ID: {tc.externalId || 'N/A'}
+                            </span>
+                            <h4 className="text-white font-semibold truncate text-sm">
+                              {tc.summary}
+                            </h4>
                           </div>
+                          <p className="text-[10px] text-slate-500 truncate uppercase tracking-widest mb-4">
+                            Priority: {tc.priority}
+                          </p>
 
-                          <div className="flex flex-wrap items-center gap-4">
-                            {/* In-line Assignment */}
-                            <div className="min-w-[140px]">
-                              <select
-                                value={assignee?.id || ''}
-                                onChange={(e) => updateCaseAssignment(tc.id, e.target.value)}
-                                className="w-full bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded-xl px-4 py-2 hover:border-indigo-500 transition-colors outline-none cursor-pointer"
+                          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-slate-900/50 rounded-xl border border-slate-800">
+                            {[
+                              { field: 'checkUi', label: 'UI Valid' },
+                              { field: 'checkOrderBuild', label: 'Order Build' },
+                              { field: 'checkOrderCompletion', label: 'Completion' },
+                              { field: 'checkPcsMcpr', label: 'PCS & MCPR' }
+                            ].map(val => (
+                              <button
+                                key={val.field}
+                                onClick={() => updateCaseValidation(tc.id, val.field, !tc[val.field])}
+                                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all text-left ${
+                                  tc[val.field] 
+                                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                                  : 'bg-slate-800/50 border-slate-700/50 text-slate-500 hover:border-slate-600'
+                                }`}
                               >
-                                <option value="">Unassigned</option>
-                                {testers.map(t => (
-                                  <option key={t.id} value={t.id}>{t.name}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {/* Status Controller */}
-                            <div className="flex gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-                              {[
-                                { status: 'PENDING', color: 'bg-slate-700 text-slate-300' },
-                                { status: 'PASS', color: 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' },
-                                { status: 'FAIL', color: 'bg-red-500 text-white shadow-lg shadow-red-500/20' },
-                                { status: 'BLOCKED', color: 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' }
-                              ].map(s => (
-                                <button
-                                  key={s.status}
-                                  onClick={() => updateCaseStatus(tc.id, s.status)}
-                                  className={`px-3 py-1 text-[9px] font-black rounded-lg transition-all ${
-                                    tc.status === s.status 
-                                      ? s.color 
-                                      : 'text-slate-500 hover:text-slate-300'
-                                  }`}
-                                >
-                                  {s.status}
-                                </button>
-                              ))}
-                            </div>
+                                <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-all ${
+                                  tc[val.field] ? 'bg-emerald-500 border-emerald-500' : 'bg-transparent border-slate-600'
+                                }`}>
+                                  {tc[val.field] && <CheckCircle2 size={10} className="text-white" />}
+                                </div>
+                                <span className="text-[9px] font-black uppercase tracking-tighter">{val.label}</span>
+                              </button>
+                            ))}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+
+                        <div className="flex flex-wrap items-center gap-4">
+                          <div className="min-w-[140px]">
+                            <select
+                              value={assignee?.id || ''}
+                              onChange={(e) => updateCaseAssignment(tc.id, e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded-xl px-4 py-2 hover:border-indigo-500 transition-colors outline-none cursor-pointer"
+                            >
+                              <option value="">Unassigned</option>
+                              {testers.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="flex gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+                            {[
+                              { status: 'PENDING', color: 'bg-slate-700 text-slate-300' },
+                              { status: 'PASS', color: 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' },
+                              { status: 'FAIL', color: 'bg-red-500 text-white shadow-lg shadow-red-500/20' },
+                              { status: 'BLOCKED', color: 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' }
+                            ].map(s => (
+                              <button
+                                key={s.status}
+                                onClick={() => updateCaseStatus(tc.id, s.status)}
+                                className={`px-3 py-1 text-[9px] font-black rounded-lg transition-all ${
+                                  tc.status === s.status 
+                                    ? s.color 
+                                    : 'text-slate-500 hover:text-slate-300'
+                                }`}
+                              >
+                                {s.status}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="p-20 text-center text-slate-500 italic">No scenarios found for this project.</div>
+                )}
+              </div>
             </div>
-            
+
             <div className="p-8 border-t border-slate-800 bg-slate-900/50 flex justify-between items-center">
               <div className="flex gap-8">
                 <div className="flex flex-col">
@@ -1803,7 +1791,7 @@ const App = () => {
               </div>
               <button 
                 onClick={() => setIsTrackerOpen(false)}
-                className="px-10 py-3 bg-indigo-600 hover:bg-indigo-500 transition-all rounded-2xl text-white font-bold text-sm shadow-xl shadow-indigo-600/20"
+                className="px-8 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-500/20"
               >
                 Close Tracker
               </button>
@@ -1811,183 +1799,29 @@ const App = () => {
           </div>
         </div>
       )}
-
-      {/* Scenario Edit Modal */}
-      {isEditScenarioModalOpen && editingScenarioData && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className={`${isDark ? 'bg-slate-950 border-white/10' : 'bg-white border-slate-200'} border rounded-[2.5rem] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300`}>
-            <div className="p-8 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-primary/5 to-transparent">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-primary/10 rounded-2xl text-primary">
-                  <Settings size={20} />
-                </div>
-                <div>
-                  <h3 className={`text-xl font-black ${textColor}`}>Refine AI Scenario</h3>
-                  <p className={`text-xs ${subTextColor}`}>Correct manual errors or refine steps for better clarity.</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setIsEditScenarioModalOpen(false)} 
-                className={`${isDark ? 'bg-white/5 text-white/40 border-white/10 hover:text-white' : 'bg-slate-100 text-slate-400 border-slate-200 hover:text-slate-900'} p-2 rounded-xl border transition-all`}
-              >
-                ✕
-              </button>
-            </div>
-            
-            <form onSubmit={handleSaveEditedScenario} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Summary / Name</label>
-                  <input 
-                    type="text" 
-                    className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-sm font-bold focus:border-primary outline-none`}
-                    value={editingScenarioData.summary}
-                    onChange={(e) => setEditingScenarioData({...editingScenarioData, summary: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Module / Area</label>
-                  <input 
-                    type="text" 
-                    className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-sm focus:border-primary outline-none`}
-                    value={editingScenarioData.module}
-                    onChange={(e) => setEditingScenarioData({...editingScenarioData, module: e.target.value})}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Scenario Priority</label>
-                <div className="flex gap-2">
-                  {['HIGH', 'MEDIUM', 'LOW'].map(p => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setEditingScenarioData({...editingScenarioData, priority: p})}
-                      className={`flex-1 py-3 rounded-xl border text-[11px] font-extrabold transition-all ${
-                        editingScenarioData.priority === p
-                        ? (p === 'HIGH' ? 'bg-rose-500 border-rose-500 text-white shadow-lg shadow-rose-500/20' : p === 'MEDIUM' ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20')
-                        : (isDark ? 'bg-white/5 border-white/10 text-slate-500' : 'bg-white border-slate-200 text-slate-400')
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Step-by-Step Instructions</label>
-                <textarea 
-                  className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs leading-relaxed min-h-[150px] focus:border-primary outline-none resize-none font-medium`}
-                  value={editingScenarioData.steps}
-                  onChange={(e) => setEditingScenarioData({...editingScenarioData, steps: e.target.value})}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Expected Outcome</label>
-                <textarea 
-                  className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs leading-relaxed min-h-[80px] focus:border-primary outline-none resize-none font-medium`}
-                  value={editingScenarioData.expectedResult}
-                  onChange={(e) => setEditingScenarioData({...editingScenarioData, expectedResult: e.target.value})}
-                  required
-                />
-              </div>
-
-              {/* New Validation Highlights in Edit Modal */}
-              <div className="pt-4 border-t border-white/5">
-                <h4 className={`text-xs font-black uppercase tracking-[0.2em] mb-6 ${isDark ? 'text-primary' : 'text-indigo-600'} flex items-center gap-2`}>
-                  <Zap size={14} /> Validation Highlights
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Order Build (Prices, MCPR)</label>
-                    <input 
-                      type="text" 
-                      className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs focus:border-primary outline-none`}
-                      value={editingScenarioData.orderBuild || ''}
-                      onChange={(e) => setEditingScenarioData({...editingScenarioData, orderBuild: e.target.value})}
-                      placeholder="e.g. Price: £59.99, MCPR: Included"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Order Completion (Status)</label>
-                    <input 
-                      type="text" 
-                      className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs focus:border-primary outline-none`}
-                      value={editingScenarioData.orderCompletion || ''}
-                      onChange={(e) => setEditingScenarioData({...editingScenarioData, orderCompletion: e.target.value})}
-                      placeholder="e.g. Status: CLOSED, Provisioning: SUCCESS"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>T&C Assurance & Comms</label>
-                    <input 
-                      type="text" 
-                      className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs focus:border-primary outline-none`}
-                      value={editingScenarioData.tcAssurance || ''}
-                      onChange={(e) => setEditingScenarioData({...editingScenarioData, tcAssurance: e.target.value})}
-                      placeholder="e.g. Welcome SMS sent, T&Cs e-mailed"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className={`text-[10px] font-bold uppercase tracking-widest ${subTextColor}`}>Billing (First Bill)</label>
-                    <input 
-                      type="text" 
-                      className={`w-full p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} text-xs focus:border-primary outline-none`}
-                      value={editingScenarioData.billing || ''}
-                      onChange={(e) => setEditingScenarioData({...editingScenarioData, billing: e.target.value})}
-                      placeholder="e.g. Pro-rated charge + Advance payment"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setIsEditScenarioModalOpen(false)}
-                  className={`flex-1 py-4 font-bold border rounded-2xl transition-all ${isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 py-4 bg-primary text-white font-black rounded-2xl hover:bg-primary/80 transition-all shadow-xl shadow-primary/20"
-                >
-                  Save Refinements
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-const MetricCard = ({ label, value, icon, change, status, trend, isDark }) => (
-  <div className={`${isDark ? 'bg-white/5 border-white/10 shadow-black/20' : 'bg-white border-slate-100 shadow-slate-200/20'} p-6 rounded-3xl border shadow-xl hover:scale-[1.02] transition-transform duration-300`}>
-    <div className="flex justify-between items-center mb-4">
-      <div className={`p-3 ${isDark ? 'bg-white/10' : 'bg-slate-50'} rounded-2xl`}>
+const MetricCard = ({ label, value, icon, change, trend = 'up', isDark, status }) => (
+  <div className={`${isDark ? 'bg-slate-800/50 border-white/10' : 'bg-white border-slate-200'} p-6 rounded-3xl border shadow-lg transition-all hover:scale-[1.02]`}>
+    <div className="flex justify-between items-start mb-4">
+      <div className={`p-3 rounded-2xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
         {icon}
       </div>
-      {status ? (
-        <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full uppercase tracking-wider">
-          {status}
-        </span>
-      ) : (
-        <span className={`text-xs font-bold ${trend === 'down' ? 'text-red-500' : 'text-emerald-500'}`}>
+      {change && (
+        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${trend === 'up' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
           {change}
         </span>
       )}
+      {status && (
+        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-primary/10 text-primary uppercase tracking-widest">
+          {status}
+        </span>
+      )}
     </div>
-    <h4 className={`${isDark ? 'text-slate-400' : 'text-slate-400'} text-sm font-medium mb-1`}>{label}</h4>
-    <p className={`text-3xl font-extrabold ${isDark ? 'text-white' : 'text-slate-900'} tracking-tight`}>{value}</p>
+    <p className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'} mb-1`}>{label}</p>
+    <h4 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{value}</h4>
   </div>
 );
 
