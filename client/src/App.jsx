@@ -501,6 +501,15 @@ const App = () => {
   };
 
   const updateCaseStatus = async (caseId, status) => {
+    // Enforcement: Journey will not be considered completed/passed unless all 4 validations are ticked
+    if (status === 'PASS') {
+      const tc = allTestCases.find(c => c.id === caseId);
+      if (tc && (!tc.checkUi || !tc.checkOrderBuild || !tc.checkOrderCompletion || !tc.checkPcsMcpr)) {
+        alert('Validation Blocked: You must manually tick all 4 validation points (UI, Order Build, Completion, PCS/MCPR) before passing this journey.');
+        return;
+      }
+    }
+
     try {
       await axios.patch(`${API_BASE}/test-cases/${caseId}/status`, { status });
       await fetchAllTestCases();
@@ -509,6 +518,16 @@ const App = () => {
       fetchBurndown();
     } catch (err) {
       console.error('Update status failed', err);
+    }
+  };
+
+  const updateCaseValidation = async (caseId, field, value) => {
+    try {
+      await axios.patch(`${API_BASE}/test-cases/${caseId}/validations`, { [field]: value });
+      // Optimized state update to avoid full refresh for just a checkbox
+      setAllTestCases(prev => prev.map(c => c.id === caseId ? { ...c, [field]: value } : c));
+    } catch (err) {
+      console.error('Validation update failed', err);
     }
   };
 
@@ -608,7 +627,8 @@ const App = () => {
       fetchAllTestCases();
     } catch (err) {
       console.error('Commit failed', err);
-      alert('Failed to save scenarios.');
+      const msg = err.response?.data?.error || err.message || 'Unknown error';
+      alert(`Failed to save scenarios: ${msg}. Please check the console for details.`);
     } finally {
       setLoading(false);
     }
@@ -1684,9 +1704,36 @@ const App = () => {
                                 {tc.summary}
                               </h4>
                             </div>
-                            <p className="text-[10px] text-slate-500 truncate uppercase tracking-widest">
+                            <p className="text-[10px] text-slate-500 truncate uppercase tracking-widest mb-4">
                               Priority: {tc.priority}
                             </p>
+
+                            {/* Manual Validation Checkpoints Grid */}
+                            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-slate-900/50 rounded-xl border border-slate-800">
+                              {[
+                                { field: 'checkUi', label: 'UI Valid' },
+                                { field: 'checkOrderBuild', label: 'Order Build' },
+                                { field: 'checkOrderCompletion', label: 'Completion' },
+                                { field: 'checkPcsMcpr', label: 'PCS & MCPR' }
+                              ].map(val => (
+                                <button
+                                  key={val.field}
+                                  onClick={() => updateCaseValidation(tc.id, val.field, !tc[val.field])}
+                                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all text-left ${
+                                    tc[val.field] 
+                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                                    : 'bg-slate-800/50 border-slate-700/50 text-slate-500 hover:border-slate-600'
+                                  }`}
+                                >
+                                  <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-all ${
+                                    tc[val.field] ? 'bg-emerald-500 border-emerald-500' : 'bg-transparent border-slate-600'
+                                  }`}>
+                                    {tc[val.field] && <CheckCircle2 size={10} className="text-white" />}
+                                  </div>
+                                  <span className="text-[9px] font-black uppercase tracking-tighter">{val.label}</span>
+                                </button>
+                              ))}
+                            </div>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-4">

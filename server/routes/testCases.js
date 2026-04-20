@@ -34,6 +34,27 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+// Update manual validation checkpoints
+router.patch('/:id/validations', async (req, res) => {
+  const { id } = req.params;
+  const { checkUi, checkOrderBuild, checkOrderCompletion, checkPcsMcpr } = req.body;
+  
+  try {
+    const updated = await prisma.testCase.update({
+      where: { id },
+      data: { 
+        ...(checkUi !== undefined && { checkUi }),
+        ...(checkOrderBuild !== undefined && { checkOrderBuild }),
+        ...(checkOrderCompletion !== undefined && { checkOrderCompletion }),
+        ...(checkPcsMcpr !== undefined && { checkPcsMcpr })
+      }
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get stats for dashboard (filtered by project)
 router.get('/stats', async (req, res) => {
   const { projectId } = req.query;
@@ -155,15 +176,19 @@ router.post('/bulk', async (req, res) => {
       // 2. Create all test cases
       const createdCases = await tx.testCase.createMany({
         data: testCases.map(tc => ({
-          summary: tc.summary,
-          steps: tc.steps,
-          expectedResult: tc.expectedResult,
+          summary: String(tc.summary || 'Untitled Scenario'),
+          steps: String(tc.steps || 'No steps provided'),
+          expectedResult: String(tc.expectedResult || 'Expected results not defined'),
           priority: tc.priority || 'MEDIUM',
           module: tc.module || 'General',
           orderBuild: tc.orderBuild || null,
           orderCompletion: tc.orderCompletion || null,
           tcAssurance: tc.tcAssurance || null,
           billing: tc.billing || null,
+          checkUi: false,
+          checkOrderBuild: false,
+          checkOrderCompletion: false,
+          checkPcsMcpr: false,
           suiteId: suite.id,
           status: 'PENDING'
         }))

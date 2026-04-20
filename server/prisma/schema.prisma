@@ -56,6 +56,10 @@ model TestCase {
   orderCompletion String?
   tcAssurance     String?      // T&C Assurance and Comms
   billing         String?
+  checkUi         Boolean      @default(false)
+  checkOrderBuild Boolean      @default(false)
+  checkOrderCompletion Boolean @default(false)
+  checkPcsMcpr    Boolean      @default(false)
   suite           TestSuite    @relation(fields: [suiteId], references: [id])
   suiteId         String
   assignments     Assignment[]
