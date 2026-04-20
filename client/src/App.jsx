@@ -579,7 +579,8 @@ const App = () => {
       }, 100);
     } catch (err) {
       console.error('Excel export failed', err);
-      alert('Failed to export Excel. Please try again.');
+      const msg = err.response?.data?.error || err.message || 'Unknown error';
+      alert(`Failed to export Excel: ${msg}. Please check your connection and try again.`);
     }
   };
 

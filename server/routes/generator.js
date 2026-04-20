@@ -30,16 +30,16 @@ router.post('/export', async (req, res) => {
   try {
     // Create worksheet with "Import-Ready" headers
     const worksheetData = scenarios.map((s, idx) => ({
-      '#': `${idx + 1}`, // External ID baseline
-      'Summary': s.summary,
-      'Steps': s.steps,
-      'Expected Result': s.expectedResult,
-      'Order Build': s.orderBuild || 'N/A',
-      'Order Completion': s.orderCompletion || 'N/A',
-      'T&C Assurance': s.tcAssurance || 'N/A',
-      'Billing': s.billing || 'N/A',
-      'Priority': s.priority || 'MEDIUM',
-      'Module': s.module || 'AI Draft'
+      '#': String(idx + 1),
+      'Summary': String(s.summary || ''),
+      'Steps': String(s.steps || ''),
+      'Expected Result': String(s.expectedResult || ''),
+      'Order Build': String(s.orderBuild || 'N/A'),
+      'Order Completion': String(s.orderCompletion || 'N/A'),
+      'T&C Assurance': String(s.tcAssurance || 'N/A'),
+      'Billing': String(s.billing || 'N/A'),
+      'Priority': String(s.priority || 'MEDIUM'),
+      'Module': String(s.module || 'AI Draft')
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(worksheetData);
