@@ -57,6 +57,7 @@ const App = () => {
   const [labRequirements, setLabRequirements] = useState('');
   const [generatedScenarios, setGeneratedScenarios] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [hasLoadedDrafts, setHasLoadedDrafts] = useState(false);
 
   const [localTheme, setLocalTheme] = useState('#f8fafc');
 
@@ -116,15 +117,21 @@ const App = () => {
     
     const savedReqs = localStorage.getItem('nexus_lab_reqs');
     if (savedReqs) setLabRequirements(savedReqs);
+
+    setHasLoadedDrafts(true);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('nexus_drafts', JSON.stringify(generatedScenarios));
-  }, [generatedScenarios]);
+    if (hasLoadedDrafts) {
+      localStorage.setItem('nexus_drafts', JSON.stringify(generatedScenarios));
+    }
+  }, [generatedScenarios, hasLoadedDrafts]);
 
   useEffect(() => {
-    localStorage.setItem('nexus_lab_reqs', labRequirements);
-  }, [labRequirements]);
+    if (hasLoadedDrafts) {
+      localStorage.setItem('nexus_lab_reqs', labRequirements);
+    }
+  }, [labRequirements, hasLoadedDrafts]);
 
   const clearDrafts = () => {
     if (window.confirm('Are you sure you want to discard all current drafts?')) {
